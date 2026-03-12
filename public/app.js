@@ -58,6 +58,7 @@ const appConfig = window.APP_CONFIG || {}
 const supabaseUrl = String(appConfig.supabaseUrl || '').replace(/\/$/, '')
 const supabaseAnonKey = String(appConfig.supabaseAnonKey || '')
 const workflowUrl = String(appConfig.syncWorkflowUrl || REPO_WORKFLOW_URL)
+const syncFunctionUrl = String(appConfig.syncFunctionUrl || (supabaseUrl ? `${supabaseUrl}/functions/v1/trigger-sync` : ''))
 const supabaseRestBase = supabaseUrl ? `${supabaseUrl}/rest/v1` : ''
 
 const filterIds = [
@@ -799,8 +800,59 @@ async function loadSyncStatus() {
   byId('last-sync').textContent = formatDateTime(state.lastSyncAt)
 }
 
-function startSync() {
-  window.open(workflowUrl, '_blank', 'noopener,noreferrer')
+async function startSync() {
+  const button = byId('sync-button')
+
+  if (!syncFunctionUrl) {
+    window.open(workflowUrl, '_blank', 'noopener,noreferrer')
+    return
+  }
+
+  try {
+    button.disabled = true
+
+    const response = await fetch(syncFunctionUrl, {
+      method: 'POST',
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${supabaseAnonKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    })
+
+    const text = await response.text()
+    let payload = {}
+
+    if (text) {
+      try {
+        payload = JSON.parse(text)
+      } catch (error) {
+        payload = { error: text }
+      }
+    }
+
+    if (!response.ok) {
+      throw new Error(payload.error || `동기화 호출 실패 (${response.status})`)
+    }
+
+    byId('sync-status').textContent = payload.message || '동기화 요청 전송됨'
+    byId('sync-progress-text').textContent = '0%'
+    byId('sync-progress-fill').style.width = '0%'
+
+    setTimeout(async () => {
+      try {
+        await loadSyncStatus()
+      } catch (error) {
+        console.error(error)
+      }
+    }, 1500)
+  } catch (error) {
+    console.error(error)
+    alert(error.message || '동기화 요청에 실패했습니다.')
+  } finally {
+    button.disabled = false
+  }
 }
 
 async function exportCurrentRows() {

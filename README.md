@@ -49,7 +49,7 @@ npm start
 - 공고일/마감일
 - 모집중 여부
 - CSV 다운로드
-- GitHub Actions 동기화 작업 바로가기
+- 웹에서 바로 동기화 요청
 - 신규 공고 상단 정렬 및 행 강조
 - 공고별 `지원예정`, `지원완료` 저장
 - 모바일 카드 UI
@@ -114,6 +114,7 @@ npm run thevc:setup
 window.APP_CONFIG = {
   supabaseUrl: 'https://YOUR_PROJECT.supabase.co',
   supabaseAnonKey: 'YOUR_SUPABASE_ANON_KEY',
+  syncFunctionUrl: 'https://YOUR_PROJECT.supabase.co/functions/v1/trigger-sync',
   syncWorkflowUrl: 'https://github.com/YOUR_ID/YOUR_REPO/actions/workflows/daily-sync.yml',
   profileKey: 'junho'
 }
@@ -122,7 +123,8 @@ window.APP_CONFIG = {
 설명:
 - `supabaseUrl`: Supabase 프로젝트 URL
 - `supabaseAnonKey`: Supabase anon public key
-- `syncWorkflowUrl`: 웹의 동기화 버튼이 열 GitHub Actions URL
+- `syncFunctionUrl`: 웹의 동기화 버튼이 호출할 Supabase Edge Function URL
+- `syncWorkflowUrl`: Edge Function이 없을 때 열어둘 GitHub Actions URL
 - `profileKey`: 체크 상태를 묶는 사용자 키. 개인용이면 임의 문자열 하나로 고정해도 됩니다.
 
 중요:
@@ -147,6 +149,40 @@ window.APP_CONFIG = {
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_KEY`
 - `SUPABASE_ANON_KEY`
+
+## Supabase Edge Function 동기화 버튼 연결
+
+웹에서 `지금 동기화` 버튼을 눌렀을 때 바로 GitHub Actions를 실행하려면 `trigger-sync` Edge Function도 배포해야 합니다.
+
+파일:
+- [supabase/functions/trigger-sync/index.ts](/Users/kimjunho/vscode/automatic/supabase/functions/trigger-sync/index.ts)
+
+필요한 Supabase Edge Function secret:
+- `GITHUB_TRIGGER_TOKEN`
+- `GITHUB_REPO_OWNER`
+- `GITHUB_REPO_NAME`
+- `GITHUB_WORKFLOW_ID`
+- `GITHUB_REF`
+
+예시:
+- `GITHUB_REPO_OWNER=junhoflow`
+- `GITHUB_REPO_NAME=Government-Funded-Project-crawling-web`
+- `GITHUB_WORKFLOW_ID=daily-sync.yml`
+- `GITHUB_REF=main`
+
+`GITHUB_TRIGGER_TOKEN`은 GitHub workflow dispatch 권한이 있는 토큰이어야 합니다.
+
+배포 예시:
+
+```bash
+supabase functions deploy trigger-sync
+supabase secrets set \
+  GITHUB_TRIGGER_TOKEN=YOUR_GITHUB_TOKEN \
+  GITHUB_REPO_OWNER=junhoflow \
+  GITHUB_REPO_NAME=Government-Funded-Project-crawling-web \
+  GITHUB_WORKFLOW_ID=daily-sync.yml \
+  GITHUB_REF=main
+```
 
 ## 구현 메모
 
