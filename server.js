@@ -32,7 +32,7 @@ const syncState = {
     stages: {}
   },
   mode: {
-    includeBizinfoClosed: true
+    includeBizinfoClosed: false
   }
 }
 let facetsCache = null
@@ -221,7 +221,7 @@ async function startSync(options = {}) {
     return false
   }
 
-  const includeBizinfoClosed = options.includeBizinfoClosed === undefined ? true : Boolean(options.includeBizinfoClosed)
+  const includeBizinfoClosed = options.includeBizinfoClosed === undefined ? false : Boolean(options.includeBizinfoClosed)
 
   syncState.isRunning = true
   syncState.startedAt = new Date().toISOString()
@@ -372,7 +372,7 @@ if (IS_SYNC_ONLY) {
 
     const db = getDatabase()
     if (AUTO_SYNC_ON_EMPTY && db.items.length === 0) {
-      startSync({ includeBizinfoClosed: true })
+      startSync({ includeBizinfoClosed: false })
     }
   })
 }

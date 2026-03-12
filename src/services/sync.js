@@ -5,7 +5,7 @@ const { collectKStartup } = require('../collectors/kstartup')
 const { collectSodam } = require('../collectors/sodam')
 const { collectTheVc } = require('../collectors/thevc')
 const { loadDatabase, saveDatabase } = require('../lib/storage')
-const { formatDateTime, isDateNearToday } = require('../lib/utils')
+const { formatDateTime, getAnnouncementStatus, isDateNearToday } = require('../lib/utils')
 
 function resolveFirstSeenAt(previous, item, db) {
   if (previous && previous.firstSeenAt) {
@@ -25,7 +25,7 @@ function resolveFirstSeenAt(previous, item, db) {
 
 async function syncSupportPrograms(options = {}) {
   const onProgress = options.onProgress || (() => {})
-  const includeBizinfoClosed = options.includeBizinfoClosed === undefined ? true : Boolean(options.includeBizinfoClosed)
+  const includeBizinfoClosed = options.includeBizinfoClosed === undefined ? false : Boolean(options.includeBizinfoClosed)
   const db = loadDatabase()
   const previousById = new Map(db.items.map((item) => [item.id, item]))
 
@@ -112,7 +112,7 @@ async function syncSupportPrograms(options = {}) {
     })
   }
 
-  const items = Array.from(merged.values())
+  const items = Array.from(merged.values()).filter((item) => getAnnouncementStatus(item).key !== 'closed')
   const summary = {
     total: items.length,
     kstartup: kstartupItems.length,
