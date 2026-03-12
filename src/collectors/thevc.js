@@ -252,6 +252,9 @@ async function collectWithSession(storageStatePath, onProgress) {
 
     onProgress({
       stage: 'thevc',
+      phase: 'done',
+      current: 1,
+      total: 1,
       message: `THE VC 세션 수집 ${deduped.length}건 정규화 완료`
     })
 
@@ -285,6 +288,9 @@ async function collectPublicList(onProgress) {
 
   onProgress({
     stage: 'thevc',
+    phase: 'done',
+    current: 1,
+    total: 1,
     message: `THE VC 공개 목록 ${normalized.length}건 정규화 완료`
   })
 
