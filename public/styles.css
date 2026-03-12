@@ -398,9 +398,10 @@ select {
 
 table {
   width: 100%;
-  min-width: 1900px;
+  min-width: 1480px;
   border-collapse: collapse;
   table-layout: fixed;
+  font-size: 0.88rem;
 }
 
 thead th {
@@ -409,12 +410,12 @@ thead th {
   background: #f6efe4;
   text-align: left;
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: 0.78rem;
 }
 
 th,
 td {
-  padding: 12px 8px;
+  padding: 9px 6px;
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
   white-space: nowrap;
@@ -457,14 +458,14 @@ tbody tr.new-row:hover {
 .status-badge {
   display: inline-flex;
   border-radius: 999px;
-  padding: 6px 10px;
-  font-size: 0.82rem;
+  padding: 4px 8px;
+  font-size: 0.74rem;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .action-col {
-  width: 8%;
+  width: 16%;
 }
 
 .source-col {
@@ -472,12 +473,12 @@ tbody tr.new-row:hover {
 }
 
 .title-col {
-  width: 32%;
+  width: 37%;
 }
 
 .category-col,
 .region-col {
-  width: 6%;
+  width: 5%;
 }
 
 .managing-col,
@@ -490,45 +491,45 @@ tbody tr.new-row:hover {
 }
 
 .status-col {
-  width: 4%;
+  width: 5%;
 }
 
 .action-cell {
-  width: 8%;
+  width: 16%;
 }
 
 .source-cell {
-  width: 4%;
+  width: 5%;
   font-weight: 600;
   color: var(--accent-strong);
 }
 
 .title-cell {
-  width: 66%;
+  width: 37%;
 }
 
 .category-cell,
 .region-cell {
-  width: 3%;
+  width: 5%;
 }
 
 .managing-cell,
 .executing-cell {
-  width: 6%;
+  width: 7%;
 }
 
 .period-cell {
-  width: 8%;
+  width: 10%;
 }
 
 .status-cell {
-  width: 4%;
+  width: 5%;
 }
 
 .workflow-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .workflow-action,
@@ -536,12 +537,12 @@ tbody tr.new-row:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 92px;
-  min-height: 38px;
+  min-width: 72px;
+  min-height: 30px;
   border-radius: 999px;
-  padding: 8px 12px;
+  padding: 5px 9px;
   font: inherit;
-  font-size: 0.84rem;
+  font-size: 0.74rem;
   font-weight: 700;
 }
 

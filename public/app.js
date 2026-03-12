@@ -396,6 +396,16 @@ function getTabActions() {
     ]
   }
 
+  if (state.activeTab === 'completed') {
+    return [
+      {
+        key: 'pending',
+        label: '지원예정',
+        confirmMessage: '이 공고를 다시 지원예정 탭으로 이동할까요?'
+      }
+    ]
+  }
+
   return []
 }
 
