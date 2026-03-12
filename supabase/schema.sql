@@ -112,6 +112,8 @@ create table if not exists public.support_announcements (
   apply_start text not null default '',
   apply_end text not null default '',
   apply_period_text text not null default '',
+  status_key text not null default '',
+  is_new boolean not null default false,
   search_text text not null default '',
   first_seen_at text not null default '',
   last_seen_at text not null default '',
@@ -152,6 +154,8 @@ alter table public.support_announcements add column if not exists posted_at text
 alter table public.support_announcements add column if not exists apply_start text not null default '';
 alter table public.support_announcements add column if not exists apply_end text not null default '';
 alter table public.support_announcements add column if not exists apply_period_text text not null default '';
+alter table public.support_announcements add column if not exists status_key text not null default '';
+alter table public.support_announcements add column if not exists is_new boolean not null default false;
 alter table public.support_announcements add column if not exists search_text text not null default '';
 alter table public.support_announcements add column if not exists first_seen_at text not null default '';
 alter table public.support_announcements add column if not exists last_seen_at text not null default '';
@@ -165,6 +169,10 @@ alter table public.support_state add column if not exists updated_at timestamptz
 
 create index if not exists support_announcements_sync_token_idx on public.support_announcements (sync_token);
 create index if not exists support_announcements_updated_at_idx on public.support_announcements (updated_at desc);
+create index if not exists support_announcements_status_key_idx on public.support_announcements (status_key);
+create index if not exists support_announcements_source_idx on public.support_announcements (source);
+create index if not exists support_announcements_category_idx on public.support_announcements (category);
+create index if not exists support_announcements_region_idx on public.support_announcements (region);
 
 alter table public.support_announcements enable row level security;
 alter table public.support_state enable row level security;
@@ -219,3 +227,43 @@ create policy "public delete support state"
 on public.support_state
 for delete
 using (true);
+
+create or replace view public.support_announcements_deduped as
+select distinct on (coalesce(nullif(title, ''), id))
+  id,
+  source_key,
+  source,
+  source_id,
+  title,
+  summary,
+  category,
+  region,
+  managing_org,
+  executing_org,
+  supervising_institution_type,
+  application_method,
+  application_site,
+  application_url,
+  detail_url,
+  origin_url,
+  contact,
+  apply_target,
+  apply_age,
+  experience,
+  preferred,
+  applicant_exclusion,
+  posted_at,
+  apply_start,
+  apply_end,
+  apply_period_text,
+  status_key,
+  is_new,
+  search_text,
+  first_seen_at,
+  last_seen_at,
+  tags,
+  updated_at
+from public.support_announcements
+order by coalesce(nullif(title, ''), id), posted_at desc, updated_at desc;
+
+grant select on public.support_announcements_deduped to anon, authenticated;

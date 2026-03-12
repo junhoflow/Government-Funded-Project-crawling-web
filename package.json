@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "sync": "node server.js --sync-only",
+    "sync:supabase": "node scripts/sync-supabase.js",
     "thevc:setup": "node scripts/thevc-setup.js"
   },
   "keywords": [],

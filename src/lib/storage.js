@@ -96,6 +96,8 @@ function toPersistedAnnouncement(item = {}) {
     applyPeriodText: item.applyPeriodText || '',
     postedAt: item.postedAt || '',
     isOngoing: Boolean(item.isOngoing),
+    statusKey: item.statusKey || '',
+    isNew: Boolean(item.isNew),
     searchText: item.searchText || '',
     firstSeenAt: item.firstSeenAt || '',
     lastSeenAt: item.lastSeenAt || '',
@@ -132,6 +134,8 @@ function fromRemoteAnnouncement(row = {}) {
     applyPeriodText: row.apply_period_text || '',
     postedAt: row.posted_at || '',
     isOngoing: Boolean(row.is_ongoing),
+    statusKey: row.status_key || '',
+    isNew: Boolean(row.is_new),
     searchText: row.search_text || '',
     firstSeenAt: row.first_seen_at || '',
     lastSeenAt: row.last_seen_at || '',
@@ -168,6 +172,8 @@ function isSamePersistedAnnouncement(left = {}, right = {}) {
     left.applyPeriodText === right.applyPeriodText &&
     left.postedAt === right.postedAt &&
     left.isOngoing === right.isOngoing &&
+    left.statusKey === right.statusKey &&
+    left.isNew === right.isNew &&
     left.searchText === right.searchText &&
     left.firstSeenAt === right.firstSeenAt &&
     left.lastSeenAt === right.lastSeenAt &&
@@ -409,6 +415,8 @@ async function saveRemoteDatabase(db, previousDb = null) {
           apply_end: item.applyEnd || '',
           apply_period_text: item.applyPeriodText || '',
           search_text: item.searchText || '',
+          status_key: item.statusKey || '',
+          is_new: Boolean(item.isNew),
           first_seen_at: item.firstSeenAt || '',
           last_seen_at: item.lastSeenAt || '',
           tags: normalizeTags(item.tags),
@@ -437,6 +445,38 @@ async function saveRemoteDatabase(db, previousDb = null) {
       }
     ])
   })
+}
+
+async function saveRemoteState(stateKey, stateValue) {
+  if (!getRemoteConfig().enabled) {
+    return
+  }
+
+  await requestRemote(`${REMOTE_STATE_TABLE}?on_conflict=state_key`, {
+    method: 'POST',
+    headers: {
+      Prefer: 'resolution=merge-duplicates,return=minimal'
+    },
+    body: JSON.stringify([
+      {
+        state_key: stateKey,
+        state_value: stateValue || {},
+        updated_at: formatDateTime()
+      }
+    ])
+  })
+}
+
+async function loadRemoteState(stateKey) {
+  if (!getRemoteConfig().enabled) {
+    return null
+  }
+
+  const rows = await requestRemote(
+    `${REMOTE_STATE_TABLE}?select=state_value&state_key=eq.${encodeURIComponent(stateKey)}&limit=1`
+  )
+
+  return rows[0] ? rows[0].state_value || null : null
 }
 
 async function saveDatabase(db, options = {}) {
@@ -479,6 +519,8 @@ module.exports = {
   initializeStorage,
   loadCache,
   loadDatabase,
+  loadRemoteState,
   saveCache,
-  saveDatabase
+  saveDatabase,
+  saveRemoteState
 }

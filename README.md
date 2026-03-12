@@ -1,6 +1,6 @@
 # Government Funded Project crawling web
 
-윈도우와 맥에서 모두 실행 가능한 Node.js 기반 웹 앱입니다. 현재 구현된 수집 대상은 아래 채널입니다.
+윈도우와 맥에서 모두 실행 가능한 정부지원사업 통합 수집 웹입니다. 현재 구현된 수집 대상은 아래 채널입니다.
 
 - `K-Startup` 지원사업 공고 오픈 API
 - `기업마당` 지원사업 공고 공개 목록/상세 페이지
@@ -9,8 +9,8 @@
 - `인천 비즈오케이` 지원사업 목록/상세 페이지
 - `THE VC` 지원사업 공개 목록
 
-웹에서 필터링하고, 현재 조건 그대로 엑셀(`.xlsx`)로 내려받을 수 있습니다.
-이제 공고별 `지원함` 체크도 가능하며, `Supabase`를 연결하면 외부 모바일에서도 같은 체크 상태를 공유할 수 있습니다. 메인 지원사업 목록도 같은 Supabase에 백업되어 배포 서버가 재시작되어도 다시 복원됩니다.
+웹에서 필터링하고, 현재 조건 그대로 CSV로 내려받을 수 있습니다.
+공고별 `지원예정`, `지원완료` 저장도 가능하며, `Supabase`를 연결하면 외부 모바일에서도 같은 상태를 공유할 수 있습니다.
 
 ## 실행 방법
 
@@ -26,13 +26,14 @@ npm start
 현재 앱은 아래 구조를 권장합니다.
 
 - 프론트: `GitHub Pages`
-- API/동기화 서버: `Render`, `Railway`, `Fly.io` 같은 Node 호스팅
-- 지원 체크 DB: `Supabase`
+- 동기화: `GitHub Actions` 스케줄
+- 저장: `Supabase`
 
 중요:
 - `GitHub Pages`는 정적 파일만 배포할 수 있습니다.
-- 따라서 현재 수집/필터 API(`server.js`)는 `GitHub Pages`에 직접 올라가지 않습니다.
-- 프론트는 `public/`를 배포하고, `public/config.js`의 `apiBaseUrl`을 외부 Node 서버 주소로 설정해야 합니다.
+- 배포 웹은 `server.js` 없이 `Supabase`를 직접 조회합니다.
+- 정적 프론트는 `public/`만 배포하면 됩니다.
+- 정기 동기화는 GitHub Actions가 실행해서 `Supabase`를 갱신합니다.
 
 ## 주요 기능
 
@@ -44,37 +45,40 @@ npm start
   - 지역
   - 주관기관유형
   - 주관기관/수행기관
-  - 지원대상
-  - 공고일/마감일
-  - 모집중 여부
-- 엑셀 다운로드
-- 수동 재동기화 버튼
+- 지원대상
+- 공고일/마감일
+- 모집중 여부
+- CSV 다운로드
+- GitHub Actions 동기화 작업 바로가기
 - 신규 공고 상단 정렬 및 행 강조
-- 공고별 `지원함` 체크
+- 공고별 `지원예정`, `지원완료` 저장
 - 모바일 카드 UI
 
 ## 동기화
 
-처음 실행 시 데이터가 없으면 자동으로 기본 동기화를 시작합니다.
+정기 동기화는 GitHub Actions가 수행합니다.
 
-- 기본 동기화
-  - `K-Startup` 전체 공고
-  - `기업마당` 진행공고 + 지난공고
-  - `판판대로`
-  - `소담상회`
-  - `인천 비즈오케이`
-  - `THE VC` 공개 목록
+기본 스케줄 기준:
+- `K-Startup`
+- `기업마당` 진행공고
+- `판판대로`
+- `소담상회`
+- `인천 비즈오케이`
 
-CLI로만 동기화하려면:
+GitHub Actions에서 실행하는 명령:
+
+```bash
+npm run sync:supabase
+```
+
+참고:
+- 스케줄 동기화에서는 속도와 안정성 때문에 `기업마당 지난공고`, `THE VC`를 기본 제외했습니다.
+- `THE VC`는 필요할 때 로컬 또는 별도 수동 작업으로만 돌리는 것을 권장합니다.
+
+로컬에서 서버 기반 전체 동기화를 시험하려면:
 
 ```bash
 npm run sync
-```
-
-기업마당 지난공고를 제외하려면:
-
-```bash
-node server.js --sync-only --exclude-bizinfo-closed
 ```
 
 ## THE VC 전체 수집
@@ -92,7 +96,7 @@ npm run thevc:setup
 
 ## 데이터 저장 위치
 
-- 통합 데이터: `data/supports.json` (`Supabase` 연결 시 서버 재시작 대비 백업/복원)
+- 통합 데이터 임시 캐시: `data/supports.json`
 - 캐시: `data/cache/`
 - THE VC 세션: `data/thevc-storage.json`
 
@@ -108,22 +112,22 @@ npm run thevc:setup
 
 ```js
 window.APP_CONFIG = {
-  apiBaseUrl: 'https://your-node-api.example.com',
   supabaseUrl: 'https://YOUR_PROJECT.supabase.co',
   supabaseAnonKey: 'YOUR_SUPABASE_ANON_KEY',
+  syncWorkflowUrl: 'https://github.com/YOUR_ID/YOUR_REPO/actions/workflows/daily-sync.yml',
   profileKey: 'junho'
 }
 ```
 
 설명:
-- `apiBaseUrl`: 외부에 배포한 현재 Node API 서버 주소
 - `supabaseUrl`: Supabase 프로젝트 URL
 - `supabaseAnonKey`: Supabase anon public key
+- `syncWorkflowUrl`: 웹의 동기화 버튼이 열 GitHub Actions URL
 - `profileKey`: 체크 상태를 묶는 사용자 키. 개인용이면 임의 문자열 하나로 고정해도 됩니다.
 
 중요:
-- 메인 목록 DB 테이블이 추가되었으니 [supabase/schema.sql](/Users/kimjunho/vscode/automatic/supabase/schema.sql)을 최신 버전으로 다시 실행해야 합니다.
-- 서버는 `public/config.js`의 `supabaseUrl`, `supabaseAnonKey`를 읽어서 같은 DB를 사용합니다.
+- 메인 목록용 `support_announcements`, `support_state`와 워크플로용 `applied_announcements`가 모두 이 스키마에 포함되어 있습니다.
+- 최신 버전으로 다시 실행해서 `support_announcements_deduped` 뷰까지 생성해야 합니다.
 
 ## GitHub Pages 배포
 
@@ -132,20 +136,17 @@ window.APP_CONFIG = {
 필수 조건:
 - 저장소 기본 브랜치가 `main`
 - GitHub Pages가 Actions 배포를 허용하도록 설정
-- `public/config.js` 안의 `apiBaseUrl`, `supabaseUrl`, `supabaseAnonKey`, `profileKey` 값 입력
+- `public/config.js` 안의 `supabaseUrl`, `supabaseAnonKey`, `syncWorkflowUrl`, `profileKey` 값 입력
 
-## 외부 API 서버 배포
+## GitHub Actions 동기화 설정
 
-현재 `server.js`를 Render/Railway/Fly 같은 곳에 그대로 올리면 됩니다.
+[daily-sync.yml](/Users/kimjunho/vscode/automatic/.github/workflows/daily-sync.yml)은 GitHub Actions에서 수집 후 Supabase에 저장합니다.
 
-추천 환경변수:
+저장소 `Settings > Secrets and variables > Actions`에 아래 secret을 추가해야 합니다.
 
-```bash
-PORT=3000
-CORS_ORIGIN=https://YOUR_ID.github.io
-```
-
-여러 Origin을 허용하려면 쉼표로 구분할 수 있습니다.
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_KEY`
+- `SUPABASE_ANON_KEY`
 
 ## 구현 메모
 
@@ -153,4 +154,4 @@ CORS_ORIGIN=https://YOUR_ID.github.io
 - `K-Startup`은 공식 JSON API를 사용합니다.
 - `기업마당`은 공식 API 사용 시 인증키가 필요하므로 공개 웹 화면을 파싱하도록 구성했습니다.
 - `THE VC`는 저장된 브라우저 세션이 있으면 내부 API 전체 페이지 수집을 시도합니다.
-- 프론트는 `apiBaseUrl` 설정이 있으면 외부 API를 호출하고, 없으면 현재 호스트의 `/api`를 사용합니다.
+- 배포 프론트는 Supabase를 직접 읽고, GitHub Actions가 동기화된 결과를 갱신합니다.

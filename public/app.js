@@ -1,3 +1,45 @@
+const REPO_WORKFLOW_URL =
+  'https://github.com/junhoflow/Government-Funded-Project-crawling-web/actions/workflows/daily-sync.yml'
+const META_STATE_KEY = 'support_database_meta'
+const SYNC_STATE_KEY = 'support_sync_status'
+const OPEN_VIEW_NAME = 'support_announcements_deduped'
+const PAGE_SIZE = 50
+const OPEN_SELECT_COLUMNS = [
+  'id',
+  'source_key',
+  'source',
+  'source_id',
+  'title',
+  'summary',
+  'category',
+  'region',
+  'managing_org',
+  'executing_org',
+  'supervising_institution_type',
+  'application_method',
+  'application_site',
+  'application_url',
+  'detail_url',
+  'origin_url',
+  'contact',
+  'apply_target',
+  'apply_age',
+  'experience',
+  'preferred',
+  'applicant_exclusion',
+  'posted_at',
+  'apply_start',
+  'apply_end',
+  'apply_period_text',
+  'status_key',
+  'is_new',
+  'search_text',
+  'first_seen_at',
+  'last_seen_at',
+  'tags',
+  'updated_at'
+].join(',')
+
 const state = {
   page: 1,
   totalPages: 1,
@@ -13,7 +55,10 @@ const state = {
 }
 
 const appConfig = window.APP_CONFIG || {}
-const apiBaseUrl = String(appConfig.apiBaseUrl || '').replace(/\/$/, '')
+const supabaseUrl = String(appConfig.supabaseUrl || '').replace(/\/$/, '')
+const supabaseAnonKey = String(appConfig.supabaseAnonKey || '')
+const workflowUrl = String(appConfig.syncWorkflowUrl || REPO_WORKFLOW_URL)
+const supabaseRestBase = supabaseUrl ? `${supabaseUrl}/rest/v1` : ''
 
 const filterIds = [
   'keyword',
@@ -33,18 +78,42 @@ function byId(id) {
   return document.getElementById(id)
 }
 
-function apiUrl(path) {
-  return apiBaseUrl ? `${apiBaseUrl}${path}` : path
+function isSupabaseReady() {
+  return Boolean(supabaseRestBase && supabaseAnonKey)
 }
 
-async function fetchJson(path, options) {
-  const response = await fetch(apiUrl(path), options)
+function supabaseHeaders(extra = {}, includeCount = false) {
+  return {
+    apikey: supabaseAnonKey,
+    Authorization: `Bearer ${supabaseAnonKey}`,
+    Accept: 'application/json',
+    ...(includeCount ? { Prefer: 'count=exact' } : {}),
+    ...extra
+  }
+}
+
+async function fetchSupabase(path, options = {}) {
+  const response = await fetch(`${supabaseRestBase}/${path}`, {
+    ...options,
+    headers: supabaseHeaders(options.headers || {}, options.includeCount)
+  })
 
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`)
+    throw new Error(`Supabase request failed: ${response.status}`)
   }
 
-  return response.json()
+  const text = await response.text()
+  const data = text ? JSON.parse(text) : null
+  return {
+    data,
+    headers: response.headers
+  }
+}
+
+function parseContentRange(headers) {
+  const contentRange = headers.get('content-range') || ''
+  const match = contentRange.match(/\/(\d+|\*)$/)
+  return match && match[1] !== '*' ? Number(match[1]) : 0
 }
 
 function formatDateTime(value) {
@@ -65,17 +134,11 @@ function escapeHtml(value) {
 }
 
 function getStatusInfo(item) {
-  const today = new Date().toISOString().slice(0, 10)
-
-  if (item.applyStart && item.applyStart > today) {
+  if (item.statusKey === 'scheduled') {
     return { text: '예정', className: 'scheduled', key: 'scheduled' }
   }
 
-  if (item.applyEnd && item.applyEnd < today) {
-    return { text: '마감/지난공고', className: 'closed', key: 'closed' }
-  }
-
-  if (item.isOngoing) {
+  if (item.statusKey === 'ongoing') {
     return { text: '모집중', className: 'active', key: 'ongoing' }
   }
 
@@ -108,128 +171,6 @@ function isDeadlineSoon(item, now = new Date()) {
   return diff >= 0 && diff <= 3 * 24 * 60 * 60 * 1000
 }
 
-function buildQuery() {
-  const params = new URLSearchParams()
-
-  filterIds.forEach((id) => {
-    const element = byId(id)
-    if (!element) {
-      return
-    }
-
-    if (id === 'category') {
-      const checkboxes = Array.from(element.querySelectorAll('input[type="checkbox"]'))
-      const checked = checkboxes.filter((checkbox) => checkbox.checked)
-
-      if (checked.length > 0 && checked.length < checkboxes.length) {
-        checked.forEach((checkbox) => {
-          params.append(id, checkbox.value)
-        })
-      }
-
-      return
-    }
-
-    if (element.multiple) {
-      Array.from(element.selectedOptions)
-        .map((option) => option.value)
-        .filter(Boolean)
-        .forEach((value) => {
-          params.append(id, value)
-        })
-      return
-    }
-
-    const value = element.value
-
-    if (value) {
-      params.set(id, value)
-    }
-  })
-
-  params.set('page', String(state.page))
-  params.set('pageSize', '50')
-  return params
-}
-
-function populateSelect(id, values, placeholder) {
-  const select = byId(id)
-
-  if (!select) {
-    return
-  }
-
-  const previous = select.multiple
-    ? Array.from(select.selectedOptions).map((option) => option.value)
-    : [select.value]
-  select.innerHTML = ''
-
-  if (!select.multiple) {
-    const defaultOption = document.createElement('option')
-    defaultOption.value = ''
-    defaultOption.textContent = placeholder
-    select.appendChild(defaultOption)
-  }
-
-  values.forEach((value) => {
-    const option = document.createElement('option')
-    option.value = value
-    option.textContent = value
-    option.selected = previous.includes(value)
-    select.appendChild(option)
-  })
-}
-
-function populateCategoryChips(values) {
-  const container = byId('category')
-
-  if (!container) {
-    return
-  }
-
-  const previous = new Set(
-    Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map((checkbox) => checkbox.value)
-  )
-  const shouldCheckAllByDefault = container.querySelectorAll('input[type="checkbox"]').length === 0
-
-  container.innerHTML = ''
-
-  values.forEach((value, index) => {
-    const label = document.createElement('label')
-    label.className = 'chip-option'
-
-    const input = document.createElement('input')
-    input.type = 'checkbox'
-    input.value = value
-    input.checked = shouldCheckAllByDefault || previous.has(value)
-    input.id = `category-chip-${index}`
-
-    const text = document.createElement('span')
-    text.textContent = value
-
-    label.appendChild(input)
-    label.appendChild(text)
-    container.appendChild(label)
-  })
-}
-
-function updateExportLink() {
-  const link = byId('export-link')
-
-  if (state.activeTab !== 'open') {
-    link.href = '#'
-    link.classList.add('is-disabled')
-    link.title = '지원사업 목록 탭에서만 엑셀 다운로드가 가능합니다.'
-    return
-  }
-
-  const params = buildQuery()
-  params.delete('page')
-  link.href = apiUrl(`/api/announcements/export.xlsx?${params.toString()}`)
-  link.classList.remove('is-disabled')
-  link.title = ''
-}
-
 function updateFilterPanelState() {
   const panel = byId('advanced-filters')
   const button = byId('toggle-filters')
@@ -243,11 +184,6 @@ function normalizeText(value) {
 
 function getWorkflowRecord(itemId) {
   return state.workflowMap[itemId] || null
-}
-
-function getWorkflowStatus(itemId) {
-  const record = getWorkflowRecord(itemId)
-  return record ? record.workflowStatus : 'open'
 }
 
 function getSelectedCategories() {
@@ -319,6 +255,100 @@ function matchesCurrentFilters(item) {
   }
 
   return true
+}
+
+function mapRowToItem(row) {
+  return {
+    id: row.id || '',
+    sourceKey: row.source_key || '',
+    source: row.source || '',
+    sourceId: row.source_id || '',
+    title: row.title || '',
+    summary: row.summary || '',
+    category: row.category || '',
+    region: row.region || '',
+    managingOrg: row.managing_org || '',
+    executingOrg: row.executing_org || '',
+    supervisingInstitutionType: row.supervising_institution_type || '',
+    applicationMethod: row.application_method || '',
+    applicationSite: row.application_site || '',
+    applicationUrl: row.application_url || '',
+    detailUrl: row.detail_url || '',
+    originUrl: row.origin_url || '',
+    contact: row.contact || '',
+    applyTarget: row.apply_target || '',
+    applyAge: row.apply_age || '',
+    experience: row.experience || '',
+    preferred: row.preferred || '',
+    applicantExclusion: row.applicant_exclusion || '',
+    postedAt: row.posted_at || '',
+    applyStart: row.apply_start || '',
+    applyEnd: row.apply_end || '',
+    applyPeriodText: row.apply_period_text || '',
+    statusKey: row.status_key || '',
+    isNew: Boolean(row.is_new),
+    searchText: row.search_text || '',
+    firstSeenAt: row.first_seen_at || '',
+    lastSeenAt: row.last_seen_at || '',
+    tags: Array.isArray(row.tags) ? row.tags : []
+  }
+}
+
+function populateSelect(id, values, placeholder) {
+  const select = byId(id)
+
+  if (!select) {
+    return
+  }
+
+  const previous = [select.value]
+  select.innerHTML = ''
+
+  const defaultOption = document.createElement('option')
+  defaultOption.value = ''
+  defaultOption.textContent = placeholder
+  select.appendChild(defaultOption)
+
+  values.forEach((value) => {
+    const option = document.createElement('option')
+    option.value = value
+    option.textContent = value
+    option.selected = previous.includes(value)
+    select.appendChild(option)
+  })
+}
+
+function populateCategoryChips(values) {
+  const container = byId('category')
+
+  if (!container) {
+    return
+  }
+
+  const previous = new Set(
+    Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map((checkbox) => checkbox.value)
+  )
+  const shouldCheckAllByDefault = container.querySelectorAll('input[type="checkbox"]').length === 0
+
+  container.innerHTML = ''
+
+  values.forEach((value, index) => {
+    const label = document.createElement('label')
+    label.className = 'chip-option'
+
+    const input = document.createElement('input')
+    input.type = 'checkbox'
+    input.value = value
+    input.checked = shouldCheckAllByDefault || previous.has(value)
+    input.id = `category-chip-${index}`
+
+    const text = document.createElement('span')
+    text.textContent = value
+
+    label.appendChild(input)
+    label.appendChild(text)
+    container.appendChild(label)
+  })
 }
 
 function getTabAction(item) {
@@ -470,20 +500,148 @@ function renderRows(items) {
   })
 }
 
-async function loadMeta() {
-  const meta = await fetchJson('/api/meta')
+function quoteCsv(value) {
+  return `"${String(value || '').replaceAll('"', '""')}"`
+}
 
-  state.totalAnnouncements = meta.total
-  byId('total-count').textContent = meta.total.toLocaleString('ko-KR')
+function toCsv(rows) {
+  return rows.map((row) => row.map(quoteCsv).join(',')).join('\n')
+}
+
+function downloadBlob(filename, content, type) {
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function updateExportLink() {
+  const link = byId('export-link')
+
+  if (state.activeTab !== 'open') {
+    link.href = '#'
+    link.classList.add('is-disabled')
+    link.title = '지원사업 목록 탭에서만 다운로드할 수 있습니다.'
+    return
+  }
+
+  link.href = '#'
+  link.classList.remove('is-disabled')
+  link.title = ''
+}
+
+function buildOrderClause() {
+  const sort = byId('sort').value || 'latest'
+
+  if (sort === 'deadline') {
+    return 'is_new.desc,apply_end.asc.nullslast,posted_at.desc.nullslast'
+  }
+
+  if (sort === 'source') {
+    return 'is_new.desc,source.asc,title.asc'
+  }
+
+  if (sort === 'title') {
+    return 'is_new.desc,title.asc'
+  }
+
+  return 'is_new.desc,posted_at.desc.nullslast,apply_end.asc.nullslast'
+}
+
+function buildOpenQuery(page, pageSize) {
+  const params = new URLSearchParams()
+  const keyword = byId('keyword').value.trim()
+  const source = byId('source').value.trim()
+  const title = byId('title').value.trim()
+  const categories = getSelectedCategories()
+  const allCategories = Array.from(byId('category').querySelectorAll('input[type="checkbox"]')).map((checkbox) => checkbox.value)
+  const region = byId('region').value.trim()
+  const applyTarget = byId('applyTarget').value.trim()
+  const managingOrg = byId('managingOrg').value.trim()
+  const executingOrg = byId('executingOrg').value.trim()
+  const period = byId('period').value.trim()
+  const status = byId('status').value.trim()
+
+  params.set('select', OPEN_SELECT_COLUMNS)
+  params.set('order', buildOrderClause())
+  params.set('limit', String(pageSize))
+  params.set('offset', String((page - 1) * pageSize))
+
+  if (source) {
+    params.set('source', `eq.${source}`)
+  }
+
+  if (title) {
+    params.set('title', `ilike.*${title}*`)
+  }
+
+  if (categories.length > 0 && categories.length < allCategories.length) {
+    params.set('category', `in.(${categories.map((value) => `"${value.replaceAll('"', '\\"')}"`).join(',')})`)
+  }
+
+  if (region) {
+    params.set('region', `eq.${region}`)
+  }
+
+  if (applyTarget) {
+    params.set('or', `(apply_target.ilike.*${applyTarget}*,summary.ilike.*${applyTarget}*)`)
+  }
+
+  if (managingOrg) {
+    params.set('managing_org', `ilike.*${managingOrg}*`)
+  }
+
+  if (executingOrg) {
+    params.set('executing_org', `ilike.*${executingOrg}*`)
+  }
+
+  if (period) {
+    params.set('apply_period_text', `ilike.*${period}*`)
+  }
+
+  if (status) {
+    params.set('status_key', `eq.${status}`)
+  }
+
+  if (keyword) {
+    params.set('search_text', `ilike.*${keyword}*`)
+  }
+
+  return `${OPEN_VIEW_NAME}?${params.toString()}`
+}
+
+async function fetchOpenAnnouncementsPage(page, pageSize, includeCount = false) {
+  const result = await fetchSupabase(buildOpenQuery(page, pageSize), {
+    includeCount
+  })
+
+  return {
+    items: Array.isArray(result.data) ? result.data.map(mapRowToItem) : [],
+    total: includeCount ? parseContentRange(result.headers) : 0
+  }
+}
+
+async function loadMeta() {
+  const result = await fetchSupabase(
+    `support_state?select=state_value&state_key=eq.${encodeURIComponent(META_STATE_KEY)}&limit=1`
+  )
+  const meta = Array.isArray(result.data) && result.data[0] ? result.data[0].state_value || {} : {}
+
+  state.totalAnnouncements = Number(meta.total || 0)
+  byId('total-count').textContent = state.totalAnnouncements.toLocaleString('ko-KR')
   state.lastSyncAt = meta.lastSyncAt || state.lastSyncAt
   byId('last-sync').textContent = formatDateTime(state.lastSyncAt)
 
-  populateSelect('source', meta.facets.sources, '전체 출처')
-  populateCategoryChips(meta.facets.categories)
-  populateSelect('region', meta.facets.regions, '전체 지역')
+  const facets = meta.facets || {}
+  populateSelect('source', facets.sources || [], '전체 출처')
+  populateCategoryChips(facets.categories || [])
+  populateSelect('region', facets.regions || [], '전체 지역')
 }
 
-function paginateClient(items, page, pageSize = 50) {
+function paginateClient(items, page, pageSize = PAGE_SIZE) {
   const totalPages = Math.max(Math.ceil(items.length / pageSize), 1)
   const safePage = Math.min(Math.max(page, 1), totalPages)
   const start = (safePage - 1) * pageSize
@@ -503,7 +661,8 @@ function getWorkflowItemsByStatus(workflowStatus) {
 }
 
 function updateTabCounts(openCount) {
-  const defaultOpenCount = Math.max(state.totalAnnouncements - Object.keys(state.workflowMap).length, 0)
+  const hiddenCount = Object.keys(state.workflowMap).length
+  const defaultOpenCount = Math.max(state.totalAnnouncements - hiddenCount, 0)
   byId('tab-open-count').textContent = `(${(openCount === undefined ? defaultOpenCount : openCount).toLocaleString('ko-KR')})`
   byId('tab-pending-count').textContent = `(${getWorkflowItemsByStatus('pending').length.toLocaleString('ko-KR')})`
   byId('tab-completed-count').textContent = `(${getWorkflowItemsByStatus('completed').length.toLocaleString('ko-KR')})`
@@ -528,7 +687,7 @@ function renderSyncStages(progress) {
   if (!stages.length) {
     const empty = document.createElement('li')
     empty.className = 'sync-stage-empty'
-    empty.textContent = '동기화 대기 중'
+    empty.textContent = 'GitHub Actions 대기 중'
     container.appendChild(empty)
     return
   }
@@ -548,30 +707,57 @@ function renderSyncStages(progress) {
   })
 }
 
+async function loadOpenAnnouncements() {
+  const hiddenIds = new Set(Object.keys(state.workflowMap))
+  const firstPage = await fetchOpenAnnouncementsPage(state.page, PAGE_SIZE * 2, true)
+  const visibleItems = []
+  let scannedItems = firstPage.items
+  let extraPage = state.page + 1
+
+  while (visibleItems.length < PAGE_SIZE && scannedItems.length > 0) {
+    scannedItems.forEach((item) => {
+      if (!hiddenIds.has(item.id) && visibleItems.length < PAGE_SIZE) {
+        visibleItems.push(item)
+      }
+    })
+
+    if (visibleItems.length >= PAGE_SIZE) {
+      break
+    }
+
+    const extraChunk = await fetchOpenAnnouncementsPage(extraPage, PAGE_SIZE * 2, false)
+
+    if (!extraChunk.items.length) {
+      break
+    }
+
+    scannedItems = extraChunk.items
+    extraPage += 1
+  }
+
+  state.totalPages = Math.max(Math.ceil(Math.max(firstPage.total - hiddenIds.size, 0) / PAGE_SIZE), 1)
+  state.currentItems = visibleItems
+  renderRows(visibleItems)
+  updateTabCounts(Math.max(firstPage.total - hiddenIds.size, 0))
+
+  byId('filtered-count').textContent = Math.max(firstPage.total - hiddenIds.size, 0).toLocaleString('ko-KR')
+  byId('page-indicator').textContent = `${state.page} / ${state.totalPages}`
+  byId('result-summary').textContent =
+    `Supabase 검색 ${Math.max(firstPage.total - hiddenIds.size, 0).toLocaleString('ko-KR')}건 중 현재 페이지 ${visibleItems.length.toLocaleString('ko-KR')}건 표시`
+}
+
 async function loadAnnouncements() {
   updateExportLink()
   updateTabButtons()
 
   if (state.activeTab === 'open') {
-    const data = await fetchJson(`/api/announcements?${buildQuery().toString()}`)
-    const hiddenIds = new Set(Object.keys(state.workflowMap))
-    const visibleItems = data.items.filter((item) => !hiddenIds.has(item.id))
-
-    state.totalPages = data.totalPages
-    state.currentItems = visibleItems
-    renderRows(visibleItems)
-    updateTabCounts(data.total - hiddenIds.size > 0 ? Math.max(data.total - hiddenIds.size, 0) : visibleItems.length)
-
-    byId('filtered-count').textContent = visibleItems.length.toLocaleString('ko-KR')
-    byId('page-indicator').textContent = `${data.page} / ${data.totalPages}`
-    byId('result-summary').textContent =
-      `서버 검색 ${data.total.toLocaleString('ko-KR')}건 중 현재 페이지 ${visibleItems.length.toLocaleString('ko-KR')}건 표시`
+    await loadOpenAnnouncements()
     return
   }
 
   const workflowStatus = state.activeTab === 'pending' ? 'pending' : 'completed'
   const workflowItems = getWorkflowItemsByStatus(workflowStatus)
-  const paginated = paginateClient(workflowItems, state.page, 50)
+  const paginated = paginateClient(workflowItems, state.page, PAGE_SIZE)
 
   state.page = paginated.page
   state.totalPages = paginated.totalPages
@@ -586,12 +772,16 @@ async function loadAnnouncements() {
 }
 
 async function loadSyncStatus() {
-  const status = await fetchJson('/api/sync-status')
-  state.lastKnownSyncRunning = state.syncRunning
-  state.syncRunning = status.isRunning
+  const result = await fetchSupabase(
+    `support_state?select=state_value&state_key=eq.${encodeURIComponent(SYNC_STATE_KEY)}&limit=1`
+  )
+  const status = Array.isArray(result.data) && result.data[0] ? result.data[0].state_value || {} : {}
 
-  byId('sync-status').textContent = status.message || '대기 중'
-  byId('sync-button').disabled = status.isRunning
+  state.lastKnownSyncRunning = state.syncRunning
+  state.syncRunning = Boolean(status.isRunning)
+
+  byId('sync-status').textContent = status.message || 'GitHub Actions 대기 중'
+  byId('sync-button').disabled = false
   byId('sync-progress-fill').style.width = `${(status.progress && status.progress.percent) || 0}%`
   byId('sync-progress-text').textContent = `${(status.progress && status.progress.percent) || 0}%`
   renderSyncStages(status.progress)
@@ -609,22 +799,59 @@ async function loadSyncStatus() {
   byId('last-sync').textContent = formatDateTime(state.lastSyncAt)
 }
 
-async function startSync() {
-  const response = await fetch(apiUrl('/api/sync'), {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({})
-  })
+function startSync() {
+  window.open(workflowUrl, '_blank', 'noopener,noreferrer')
+}
 
-  if (!response.ok) {
-    const result = await response.json()
-    alert(result.message || '동기화를 시작하지 못했습니다.')
+async function exportCurrentRows() {
+  if (state.activeTab !== 'open') {
     return
   }
 
-  await loadSyncStatus()
+  const hiddenIds = new Set(Object.keys(state.workflowMap))
+  const rows = []
+  let page = 1
+
+  while (true) {
+    const chunk = await fetchOpenAnnouncementsPage(page, 1000, false)
+
+    if (!chunk.items.length) {
+      break
+    }
+
+    chunk.items.forEach((item) => {
+      if (!hiddenIds.has(item.id)) {
+        rows.push(item)
+      }
+    })
+
+    if (chunk.items.length < 1000) {
+      break
+    }
+
+    page += 1
+  }
+
+  const csvRows = [
+    ['상태', '출처', '공고명', '분야', '지역', '주관기관', '수행기관', '신청기간', '상세URL'],
+    ...rows.map((item) => [
+      getStatusInfo(item).text,
+      item.source,
+      item.title,
+      item.category,
+      item.region,
+      item.managingOrg,
+      item.executingOrg,
+      item.applyPeriodText,
+      item.detailUrl || item.originUrl || ''
+    ])
+  ]
+
+  downloadBlob(
+    `support-programs-${new Date().toISOString().slice(0, 10)}.csv`,
+    `\uFEFF${toCsv(csvRows)}`,
+    'text/csv;charset=utf-8'
+  )
 }
 
 async function applyFilters() {
@@ -669,9 +896,10 @@ async function moveWorkflow(itemId, workflowStatus) {
     return
   }
 
-  const action = workflowStatus === 'pending'
-    ? { label: '지원예정', confirmMessage: '이 공고를 지원예정 탭으로 이동할까요?' }
-    : { label: '지원완료', confirmMessage: '이 공고를 지원완료 탭으로 이동할까요?' }
+  const action =
+    workflowStatus === 'pending'
+      ? { confirmMessage: '이 공고를 지원예정 탭으로 이동할까요?' }
+      : { confirmMessage: '이 공고를 지원완료 탭으로 이동할까요?' }
 
   if (!window.confirm(action.confirmMessage)) {
     return
@@ -712,13 +940,7 @@ function resetFilters() {
     }
 
     if (element.tagName === 'SELECT') {
-      if (element.multiple) {
-        Array.from(element.options).forEach((option) => {
-          option.selected = false
-        })
-      } else {
-        element.selectedIndex = 0
-      }
+      element.selectedIndex = 0
     } else {
       element.value = ''
     }
@@ -730,16 +952,16 @@ function resetFilters() {
 
 async function refreshAll() {
   try {
-    await Promise.all([
-      loadAppliedState(),
-      loadMeta(),
-      loadSyncStatus()
-    ])
+    if (!isSupabaseReady()) {
+      throw new Error('Supabase config missing')
+    }
+
+    await Promise.all([loadAppliedState(), loadMeta(), loadSyncStatus()])
     await loadAnnouncements()
   } catch (error) {
     console.error(error)
-    byId('result-summary').textContent = 'API 연결에 실패했습니다. config.js의 apiBaseUrl 설정을 확인하세요.'
-    byId('sync-status').textContent = 'API 연결 실패'
+    byId('result-summary').textContent = 'Supabase 연결에 실패했습니다. config.js 설정을 확인하세요.'
+    byId('sync-status').textContent = 'Supabase 연결 실패'
   }
 }
 
@@ -768,6 +990,13 @@ byId('next-page').addEventListener('click', async () => {
 })
 
 byId('sync-button').addEventListener('click', startSync)
+byId('export-link').addEventListener('click', async (event) => {
+  event.preventDefault()
+  if (byId('export-link').classList.contains('is-disabled')) {
+    return
+  }
+  await exportCurrentRows()
+})
 byId('apply-filters').addEventListener('click', applyFilters)
 byId('reset-filters').addEventListener('click', async () => {
   resetFilters()
@@ -810,4 +1039,5 @@ setInterval(async () => {
 }, 10000)
 
 updateFilterPanelState()
+updateExportLink()
 refreshAll()

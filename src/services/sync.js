@@ -5,6 +5,7 @@ const { collectKStartup } = require('../collectors/kstartup')
 const { collectSodam } = require('../collectors/sodam')
 const { collectTheVc } = require('../collectors/thevc')
 const { loadDatabase, saveDatabase } = require('../lib/storage')
+const { buildFacets } = require('../lib/filters')
 const { formatDateTime, getAnnouncementStatus, isDateNearToday } = require('../lib/utils')
 
 function compactSyncedItem(item) {
@@ -60,6 +61,7 @@ function resolveFirstSeenAt(previous, item, db) {
 async function syncSupportPrograms(options = {}) {
   const onProgress = options.onProgress || (() => {})
   const includeBizinfoClosed = options.includeBizinfoClosed === undefined ? false : Boolean(options.includeBizinfoClosed)
+  const includeTheVc = options.includeTheVc === undefined ? true : Boolean(options.includeTheVc)
   const db = loadDatabase()
   const previousById = new Map(db.items.map((item) => [item.id, item]))
 
@@ -106,10 +108,12 @@ async function syncSupportPrograms(options = {}) {
     return collectBizOk(onProgress, { previousById })
   })()
 
-  const thevcTask = (async () => {
-    onProgress({ stage: 'sync', message: 'THE VC 수집 시작' })
-    return collectTheVc(onProgress)
-  })()
+  const thevcTask = includeTheVc
+    ? (async () => {
+        onProgress({ stage: 'sync', message: 'THE VC 수집 시작' })
+        return collectTheVc(onProgress)
+      })()
+    : Promise.resolve([])
 
   const [kstartupItems, bizinfoOpenItems, bizinfoClosedItems, fanfandaeroItems, sodamItems, bizokItems, thevcItems] =
     await Promise.all([
@@ -142,11 +146,13 @@ async function syncSupportPrograms(options = {}) {
       ...compactItem,
       firstSeenAt,
       lastSeenAt: syncFinishedAt,
+      statusKey: getAnnouncementStatus(compactItem).key,
       isNew: isDateNearToday(compactItem.applyStart, 2, new Date(syncFinishedAt))
     })
   }
 
   const items = Array.from(merged.values()).filter((item) => getAnnouncementStatus(item).key !== 'closed')
+  const facets = buildFacets(items)
   const summary = {
     total: items.length,
     kstartup: kstartupItems.length,
@@ -157,6 +163,7 @@ async function syncSupportPrograms(options = {}) {
     bizok: bizokItems.length,
     thevc: thevcItems.length,
     includeBizinfoClosed,
+    includeTheVc,
     finishedAt: syncFinishedAt
   }
 
@@ -165,7 +172,9 @@ async function syncSupportPrograms(options = {}) {
     meta: {
       ...db.meta,
       lastSyncAt: summary.finishedAt,
-      lastSyncSummary: summary
+      lastSyncSummary: summary,
+      total: items.length,
+      facets
     }
   }, {
     previousDb: db

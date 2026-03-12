@@ -8,14 +8,21 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
-      - name: Trigger daily sync on Render
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
         run: |
-          curl --fail --show-error --silent \
-            --retry 5 \
-            --retry-delay 20 \
-            --retry-all-errors \
-            -X POST \
-            -H 'Content-Type: application/json' \
-            -d '{}' \
-            'https://government-funded-project-crawling-web.onrender.com/api/sync'
+          npm ci
+      - name: Sync announcements to Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          MAX_LOCAL_DB_FILE_BYTES: 0
+        run: |
+          npm run sync:supabase
