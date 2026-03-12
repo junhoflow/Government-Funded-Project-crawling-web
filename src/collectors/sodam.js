@@ -1,6 +1,6 @@
 const { collectFanfandaero } = require('./fanfandaero')
 
-async function collectSodam(onProgress = () => {}) {
+async function collectSodam(onProgress = () => {}, options = {}) {
   return collectFanfandaero({
     sourceKey: 'sodam',
     sourceName: '소담상회',
@@ -13,6 +13,7 @@ async function collectSodam(onProgress = () => {}) {
       searchMode: 'sprtBizNm',
       searchText: '소담상회'
     },
+    previousById: options.previousById,
     onProgress
   })
 }

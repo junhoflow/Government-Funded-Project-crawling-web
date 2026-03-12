@@ -1,5 +1,21 @@
 const fetch = require('node-fetch')
+const http = require('http')
+const https = require('https')
 const { sleep } = require('./utils')
+
+const httpAgent = new http.Agent({
+  keepAlive: true,
+  maxSockets: 64
+})
+
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 64
+})
+
+function getAgent(url) {
+  return String(url).startsWith('https://') ? httpsAgent : httpAgent
+}
 
 async function fetchText(url, options = {}) {
   const retries = options.retries === undefined ? 3 : options.retries
@@ -10,6 +26,7 @@ async function fetchText(url, options = {}) {
     try {
       const response = await fetch(url, {
         timeout: 30000,
+        agent: getAgent(url),
         headers: {
           'user-agent': 'automatic-support-crawler/1.0',
           accept: 'text/html,application/json'

@@ -59,17 +59,17 @@ async function syncSupportPrograms(options = {}) {
 
   const fanfandaeroTask = (async () => {
     onProgress({ stage: 'sync', message: '판판대로 수집 시작' })
-    return collectFanfandaero({ onProgress })
+    return collectFanfandaero({ onProgress, previousById })
   })()
 
   const sodamTask = (async () => {
     onProgress({ stage: 'sync', message: '소담상회 수집 시작' })
-    return collectSodam(onProgress)
+    return collectSodam(onProgress, { previousById })
   })()
 
   const bizokTask = (async () => {
     onProgress({ stage: 'sync', message: '인천 비즈오케이 수집 시작' })
-    return collectBizOk(onProgress)
+    return collectBizOk(onProgress, { previousById })
   })()
 
   const thevcTask = (async () => {

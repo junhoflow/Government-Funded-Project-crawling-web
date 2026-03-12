@@ -227,13 +227,24 @@ function parseDetail(baseItem, html) {
   }
 }
 
-async function collectBizOk(onProgress = () => {}) {
+function canReusePreviousDetail(previous, item) {
+  return Boolean(
+    previous &&
+      previous.postedAt === item.postedAt &&
+      previous.applyPeriodText === item.applyPeriodText &&
+      previous.managingOrg === item.managingOrg &&
+      (previous.summary || previous.content)
+  )
+}
+
+async function collectBizOk(onProgress = () => {}, options = {}) {
+  const previousById = options.previousById || new Map()
   onProgress({ stage: 'bizok', phase: 'list', current: 0, total: 1, message: '인천 비즈오케이 목록 1페이지 조회 중' })
   const firstHtml = await fetchText(buildListUrl(1), requestOptions(`${BASE_URL}/`))
   const first = extractListItems(firstHtml)
   const pages = Array.from({ length: Math.max(first.totalPages - 1, 0) }, (_, index) => index + 2)
 
-  const additionalPages = await mapConcurrent(pages, 6, async (page, index) => {
+  const additionalPages = await mapConcurrent(pages, 10, async (page, index) => {
     const html = await fetchText(buildListUrl(page), requestOptions(buildListUrl(1)))
     const parsed = extractListItems(html)
     onProgress({
@@ -256,7 +267,24 @@ async function collectBizOk(onProgress = () => {}) {
     message: `인천 비즈오케이 목록 ${items.length}건 확보, 상세 수집 시작`
   })
 
-  return mapConcurrent(items, 8, async (item, index) => {
+  return mapConcurrent(items, 12, async (item, index) => {
+    const previous = previousById.get(item.id)
+
+    if (canReusePreviousDetail(previous, item)) {
+      onProgress({
+        stage: 'bizok',
+        phase: 'detail',
+        current: index + 1,
+        total: items.length,
+        message: `인천 비즈오케이 상세 캐시 재사용 ${index + 1}/${items.length}`
+      })
+      return {
+        ...previous,
+        ...item,
+        searchText: previous.searchText || item.searchText || item.title
+      }
+    }
+
     try {
       const html = await fetchText(item.detailUrl, requestOptions(buildListUrl(1)))
       const detail = parseDetail(item, html)
@@ -276,7 +304,13 @@ async function collectBizOk(onProgress = () => {}) {
         total: items.length,
         message: `인천 비즈오케이 상세 실패 ${index + 1}/${items.length}: ${item.title}`
       })
-      return item
+      return previous
+        ? {
+            ...previous,
+            ...item,
+            searchText: previous.searchText || item.searchText || item.title
+          }
+        : item
     }
   })
 }

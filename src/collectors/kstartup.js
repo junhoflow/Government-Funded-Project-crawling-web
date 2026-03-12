@@ -94,7 +94,7 @@ async function collectKStartup(onProgress = () => {}) {
     totalPages
   })
 
-  const pageResults = await mapConcurrent(pages, 10, async (page, index) => {
+  const pageResults = await mapConcurrent(pages, 16, async (page, index) => {
     const json = await fetchJson(buildUrl(page))
     onProgress({
       stage: 'kstartup',

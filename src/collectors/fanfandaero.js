@@ -260,6 +260,16 @@ async function fetchDetail(sourcePageUrl, item) {
   return normalizeDetail(item, summaryResponse, infoResponse)
 }
 
+function canReusePreviousDetail(previous, item) {
+  return Boolean(
+    previous &&
+      previous.postedAt === item.postedAt &&
+      previous.applyPeriodText === item.applyPeriodText &&
+      previous.category === item.category &&
+      (previous.summary || previous.content)
+  )
+}
+
 async function collectFanfandaero(options = {}) {
   const sourceKey = options.sourceKey || 'fanfandaero'
   const sourceName = options.sourceName || '판판대로'
@@ -269,6 +279,7 @@ async function collectFanfandaero(options = {}) {
   const extraParams = options.extraParams || {}
   const pageUrl = options.pageUrl || 'https://fanfandaero.kr/portal/v2/preSprtBizPbanc.do'
   const onProgress = options.onProgress || (() => {})
+  const previousById = options.previousById || new Map()
 
   onProgress({ stage: sourceKey, phase: 'list', current: 0, total: 1, message: `${sourceName} 목록 1페이지 조회 중` })
   const firstPage = await fetchListPage(1, listUrl, extraParams, pageUrl)
@@ -277,7 +288,7 @@ async function collectFanfandaero(options = {}) {
   const listItems = (firstPage[listKey] || []).map((item) => normalizeListItem(item, sourceKey, sourceName))
   const pages = Array.from({ length: Math.max(totalPages - 1, 0) }, (_, index) => index + 2)
 
-  const additionalPages = await mapConcurrent(pages, 6, async (page, index) => {
+  const additionalPages = await mapConcurrent(pages, 10, async (page, index) => {
     const json = await fetchListPage(page, listUrl, extraParams, pageUrl)
     onProgress({
       stage: sourceKey,
@@ -299,7 +310,24 @@ async function collectFanfandaero(options = {}) {
     message: `${sourceName} 목록 ${flatItems.length}건 확보, 상세 수집 시작`
   })
 
-  return mapConcurrent(flatItems, 8, async (item, index) => {
+  return mapConcurrent(flatItems, 12, async (item, index) => {
+    const previous = previousById.get(item.id)
+
+    if (canReusePreviousDetail(previous, item)) {
+      onProgress({
+        stage: sourceKey,
+        phase: 'detail',
+        current: index + 1,
+        total: flatItems.length,
+        message: `${sourceName} 상세 캐시 재사용 ${index + 1}/${flatItems.length}`
+      })
+      return {
+        ...previous,
+        ...item,
+        searchText: previous.searchText || item.searchText || item.title
+      }
+    }
+
     try {
       const detail = await fetchDetail(pageUrl, item)
       onProgress({
@@ -318,7 +346,13 @@ async function collectFanfandaero(options = {}) {
         total: flatItems.length,
         message: `${sourceName} 상세 실패 ${index + 1}/${flatItems.length}: ${item.title}`
       })
-      return item
+      return previous
+        ? {
+            ...previous,
+            ...item,
+            searchText: previous.searchText || item.searchText || item.title
+          }
+        : item
     }
   })
 }

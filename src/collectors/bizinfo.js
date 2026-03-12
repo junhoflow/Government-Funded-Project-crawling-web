@@ -213,7 +213,7 @@ async function collectBizInfo(options = {}) {
   })
 
   const listings = [first.rows]
-  const pageListings = await mapConcurrent(pages, 6, async (page, index) => {
+  const pageListings = await mapConcurrent(pages, 10, async (page, index) => {
     const html = await fetchText(buildListUrl(page, includeClosed))
     const parsed = extractListItems(html, includeClosed)
     onProgress({
@@ -239,7 +239,7 @@ async function collectBizInfo(options = {}) {
     message: `기업마당 목록 ${flatListings.length}건 확보, 상세 수집 시작`
   })
 
-  const detailedItems = await mapConcurrent(flatListings, 8, async (item, index) => {
+  const detailedItems = await mapConcurrent(flatListings, 12, async (item, index) => {
     const previous = previousById.get(item.id)
 
     if (
