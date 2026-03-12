@@ -1,0 +1,21 @@
+name: Daily Support Sync
+
+on:
+  schedule:
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger daily sync on Render
+        run: |
+          curl --fail --show-error --silent \
+            --retry 5 \
+            --retry-delay 20 \
+            --retry-all-errors \
+            -X POST \
+            -H 'Content-Type: application/json' \
+            -d '{}' \
+            'https://government-funded-project-crawling-web.onrender.com/api/sync'
