@@ -1,12 +1,14 @@
 <!doctype html>
 <html lang="ko">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#114b5f">
-    <title>Government Funded Project crawling web</title>
-    <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./styles.css">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#114b5f" />
+    <title>정부지원사업 크롤링 웹</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="shortcut icon" href="./favicon.svg" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="page-shell">
@@ -15,13 +17,18 @@
           <p class="eyebrow">Government Funded Project crawling web</p>
           <h1>Government Funded Project crawling web</h1>
           <p class="hero-copy">
-            K-Startup, 기업마당, 판판대로, 소담상회, 인천 비즈오케이 공고를 GitHub Actions 스케줄로 동기화하고 Supabase에서 바로 조회합니다.
+            K-Startup, 기업마당, 판판대로, 소담상회, 인천 비즈오케이 공고를
+            GitHub Actions 스케줄로 동기화하고 Supabase에서 바로 조회합니다.
           </p>
-          <p class="hero-meta">지원 상태 저장: <strong id="storage-mode">이 기기 저장</strong></p>
+          <p class="hero-meta">
+            지원 상태 저장: <strong id="storage-mode">이 기기 저장</strong>
+          </p>
         </div>
         <div class="hero-actions">
           <button id="sync-button" class="primary-button">지금 동기화</button>
-          <a id="export-link" class="excel-button" href="#">현재 조건 CSV 다운로드</a>
+          <a id="export-link" class="excel-button" href="#"
+            >현재 조건 CSV 다운로드</a
+          >
         </div>
       </header>
 
@@ -56,7 +63,11 @@
           <div class="top-filter-grid">
             <label>
               <span>키워드</span>
-              <input type="text" id="keyword" placeholder="공고명, 기관명, 내용 검색">
+              <input
+                type="text"
+                id="keyword"
+                placeholder="공고명, 기관명, 내용 검색"
+              />
             </label>
             <label>
               <span>정렬</span>
@@ -68,7 +79,9 @@
               </select>
             </label>
           </div>
-          <button id="toggle-filters" class="secondary-button" type="button">필터 닫기</button>
+          <button id="toggle-filters" class="secondary-button" type="button">
+            필터 닫기
+          </button>
         </div>
         <div id="advanced-filters" class="advanced-filters">
           <div class="filter-grid">
@@ -80,7 +93,7 @@
             </label>
             <label>
               <span>공고명</span>
-              <input type="text" id="title" placeholder="공고명 검색">
+              <input type="text" id="title" placeholder="공고명 검색" />
             </label>
             <label>
               <span>지역</span>
@@ -90,19 +103,28 @@
             </label>
             <label>
               <span>지원대상</span>
-              <input type="text" id="applyTarget" placeholder="지원대상 검색" value="예비">
+              <input
+                type="text"
+                id="applyTarget"
+                placeholder="지원대상 검색"
+                value="예비"
+              />
             </label>
             <label>
               <span>주관기관</span>
-              <input type="text" id="managingOrg" placeholder="주관기관 검색">
+              <input type="text" id="managingOrg" placeholder="주관기관 검색" />
             </label>
             <label>
               <span>수행기관</span>
-              <input type="text" id="executingOrg" placeholder="수행기관 검색">
+              <input
+                type="text"
+                id="executingOrg"
+                placeholder="수행기관 검색"
+              />
             </label>
             <label>
               <span>신청기간</span>
-              <input type="text" id="period" placeholder="예: 2026-03">
+              <input type="text" id="period" placeholder="예: 2026-03" />
             </label>
             <label>
               <span>상태</span>
@@ -115,12 +137,20 @@
             </label>
             <label class="category-field">
               <span>분야</span>
-              <div id="category" class="category-chips" aria-label="분야 필터"></div>
+              <div
+                id="category"
+                class="category-chips"
+                aria-label="분야 필터"
+              ></div>
             </label>
           </div>
           <div class="filter-actions">
-            <button id="apply-filters" class="primary-button" type="button">필터 적용</button>
-            <button id="reset-filters" class="secondary-button" type="button">초기화</button>
+            <button id="apply-filters" class="primary-button" type="button">
+              필터 적용
+            </button>
+            <button id="reset-filters" class="secondary-button" type="button">
+              초기화
+            </button>
           </div>
         </div>
       </section>
@@ -138,22 +168,28 @@
           </div>
         </div>
         <div class="list-tabs">
-          <button id="tab-open" class="tab-button is-active" type="button">지원사업 목록 <span id="tab-open-count"></span></button>
-          <button id="tab-pending" class="tab-button" type="button">지원예정 <span id="tab-pending-count"></span></button>
-          <button id="tab-completed" class="tab-button" type="button">지원완료 <span id="tab-completed-count"></span></button>
+          <button id="tab-open" class="tab-button is-active" type="button">
+            지원사업 목록 <span id="tab-open-count"></span>
+          </button>
+          <button id="tab-pending" class="tab-button" type="button">
+            지원예정 <span id="tab-pending-count"></span>
+          </button>
+          <button id="tab-completed" class="tab-button" type="button">
+            지원완료 <span id="tab-completed-count"></span>
+          </button>
         </div>
         <div class="table-wrap">
           <table>
             <colgroup>
-              <col class="source-col">
-              <col class="title-col">
-              <col class="category-col">
-              <col class="region-col">
-              <col class="managing-col">
-              <col class="executing-col">
-              <col class="period-col">
-              <col class="status-col">
-              <col class="action-col">
+              <col class="source-col" />
+              <col class="title-col" />
+              <col class="category-col" />
+              <col class="region-col" />
+              <col class="managing-col" />
+              <col class="executing-col" />
+              <col class="period-col" />
+              <col class="status-col" />
+              <col class="action-col" />
             </colgroup>
             <thead>
               <tr class="column-row">
@@ -223,4 +259,4 @@
     <script src="./applied-store.js"></script>
     <script src="./app.js"></script>
   </body>
-  </html>
+</html>
