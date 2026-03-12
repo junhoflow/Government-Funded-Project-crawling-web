@@ -375,7 +375,7 @@ function getTabActions() {
     return [
       {
         key: 'pending',
-        label: '지원예정',
+        label: '예정',
         confirmMessage: '이 공고를 지원예정 탭으로 이동할까요?'
       }
     ]
@@ -385,12 +385,12 @@ function getTabActions() {
     return [
       {
         key: 'completed',
-        label: '지원완료',
+        label: '완료',
         confirmMessage: '이 공고를 지원완료 탭으로 이동할까요?'
       },
       {
         key: 'open',
-        label: '지원목록',
+        label: '목록',
         confirmMessage: '이 공고를 지원사업 목록으로 되돌릴까요?'
       }
     ]
@@ -400,7 +400,7 @@ function getTabActions() {
     return [
       {
         key: 'pending',
-        label: '지원예정',
+        label: '예정',
         confirmMessage: '이 공고를 다시 지원예정 탭으로 이동할까요?'
       }
     ]

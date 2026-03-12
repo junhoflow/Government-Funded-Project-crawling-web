@@ -401,7 +401,7 @@ table {
   min-width: 0;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 0.84rem;
+  font-size: 0.8rem;
 }
 
 thead th {
@@ -410,12 +410,12 @@ thead th {
   background: #f6efe4;
   text-align: left;
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: 0.7rem;
 }
 
 th,
 td {
-  padding: 8px 5px;
+  padding: 7px 4px;
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
   white-space: nowrap;
@@ -458,14 +458,14 @@ tbody tr.new-row:hover {
 .status-badge {
   display: inline-flex;
   border-radius: 999px;
-  padding: 3px 7px;
-  font-size: 0.68rem;
+  padding: 2px 6px;
+  font-size: 0.64rem;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .action-col {
-  width: 12%;
+  width: 10%;
 }
 
 .source-col {
@@ -473,7 +473,7 @@ tbody tr.new-row:hover {
 }
 
 .title-col {
-  width: 31%;
+  width: 28%;
 }
 
 .category-col,
@@ -483,7 +483,7 @@ tbody tr.new-row:hover {
 
 .managing-col,
 .executing-col {
-  width: 9%;
+  width: 10%;
 }
 
 .period-col {
@@ -495,7 +495,7 @@ tbody tr.new-row:hover {
 }
 
 .action-cell {
-  width: 12%;
+  width: 10%;
 }
 
 .source-cell {
@@ -505,7 +505,7 @@ tbody tr.new-row:hover {
 }
 
 .title-cell {
-  width: 31%;
+  width: 28%;
 }
 
 .category-cell,
@@ -515,7 +515,7 @@ tbody tr.new-row:hover {
 
 .managing-cell,
 .executing-cell {
-  width: 9%;
+  width: 10%;
 }
 
 .period-cell {
@@ -529,7 +529,7 @@ tbody tr.new-row:hover {
 .workflow-actions {
   display: flex;
   flex-wrap: nowrap;
-  gap: 4px;
+  gap: 3px;
   width: 100%;
 }
 
@@ -540,11 +540,11 @@ tbody tr.new-row:hover {
   justify-content: center;
   flex: 1 1 0;
   min-width: 0;
-  min-height: 24px;
+  min-height: 22px;
   border-radius: 999px;
-  padding: 3px 4px;
+  padding: 2px 3px;
   font: inherit;
-  font-size: 0.62rem;
+  font-size: 0.56rem;
   line-height: 1.1;
   font-weight: 700;
 }
