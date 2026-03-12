@@ -45,6 +45,7 @@ const state = {
   totalPages: 1,
   syncRunning: false,
   filtersOpen: false,
+  initialFiltersApplied: false,
   lastKnownSyncRunning: false,
   lastSyncAt: '',
   currentItems: [],
@@ -428,6 +429,19 @@ function clearAllCategories() {
   Array.from(byId('category').querySelectorAll('input[type="checkbox"]')).forEach((checkbox) => {
     checkbox.checked = false
   })
+}
+
+function applyInitialFilterDefaults() {
+  if (state.initialFiltersApplied) {
+    return
+  }
+
+  byId('category').querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+    checkbox.checked = true
+  })
+  byId('applyTarget').value = '예비'
+  byId('status').value = 'ongoing'
+  state.initialFiltersApplied = true
 }
 
 function getTabActions() {
@@ -1115,6 +1129,7 @@ async function refreshAll() {
     }
 
     await Promise.all([loadAppliedState(), loadMeta(), loadSyncStatus()])
+    applyInitialFilterDefaults()
     await loadAnnouncements()
   } catch (error) {
     console.error(error)
