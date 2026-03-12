@@ -134,12 +134,30 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;')
 }
 
+function getDerivedStatusKey(item, now = new Date()) {
+  const today = new Date(now).toISOString().slice(0, 10)
+  const applyStart = String(item && item.applyStart ? item.applyStart : '')
+  const applyEnd = String(item && item.applyEnd ? item.applyEnd : '')
+
+  if (applyStart && applyStart > today) {
+    return 'scheduled'
+  }
+
+  if (applyEnd && applyEnd < today) {
+    return 'closed'
+  }
+
+  return 'ongoing'
+}
+
 function getStatusInfo(item) {
-  if (item.statusKey === 'scheduled') {
+  const statusKey = item && item.statusKey ? item.statusKey : getDerivedStatusKey(item)
+
+  if (statusKey === 'scheduled') {
     return { text: '예정', className: 'scheduled', key: 'scheduled' }
   }
 
-  if (item.statusKey === 'ongoing') {
+  if (statusKey === 'ongoing') {
     return { text: '모집중', className: 'active', key: 'ongoing' }
   }
 
@@ -352,47 +370,63 @@ function populateCategoryChips(values) {
   })
 }
 
-function getTabAction(item) {
+function getTabActions() {
   if (state.activeTab === 'open') {
-    return {
-      key: 'pending',
-      label: '지원예정',
-      confirmMessage: '이 공고를 지원예정 탭으로 이동할까요?'
-    }
+    return [
+      {
+        key: 'pending',
+        label: '지원예정',
+        confirmMessage: '이 공고를 지원예정 탭으로 이동할까요?'
+      }
+    ]
   }
 
   if (state.activeTab === 'pending') {
-    return {
-      key: 'completed',
-      label: '지원완료',
-      confirmMessage: '이 공고를 지원완료 탭으로 이동할까요?'
-    }
+    return [
+      {
+        key: 'completed',
+        label: '지원완료',
+        confirmMessage: '이 공고를 지원완료 탭으로 이동할까요?'
+      },
+      {
+        key: 'open',
+        label: '지원목록',
+        confirmMessage: '이 공고를 지원사업 목록으로 되돌릴까요?'
+      }
+    ]
   }
 
-  return null
+  return []
 }
 
-function createActionButton(item) {
-  const action = getTabAction(item)
+function createActionControls(item) {
+  const actions = getTabActions()
 
-  if (!action) {
+  if (!actions.length) {
     const span = document.createElement('span')
     span.className = 'action-complete'
     span.textContent = '완료'
     return span
   }
 
-  const button = document.createElement('button')
   const isBusy = state.togglingIds.has(item.id)
+  const wrapper = document.createElement('div')
+  wrapper.className = 'workflow-actions'
 
-  button.type = 'button'
-  button.className = `workflow-action workflow-${action.key}`
-  button.dataset.workflowAction = action.key
-  button.dataset.announcementId = item.id
-  button.disabled = isBusy
-  button.textContent = action.label
-  button.title = action.label
-  return button
+  actions.forEach((action) => {
+    const button = document.createElement('button')
+
+    button.type = 'button'
+    button.className = `workflow-action workflow-${action.key}`
+    button.dataset.workflowAction = action.key
+    button.dataset.announcementId = item.id
+    button.disabled = isBusy
+    button.textContent = action.label
+    button.title = action.label
+    wrapper.appendChild(button)
+  })
+
+  return wrapper
 }
 
 function createStatusBadge(statusInfo) {
@@ -481,7 +515,7 @@ function renderRows(items) {
     periodCell.title = periodText
     statusCell.appendChild(createStatusBadge(statusInfo))
     statusCell.title = statusInfo.text
-    actionCell.appendChild(createActionButton(item))
+    actionCell.appendChild(createActionControls(item))
 
     body.appendChild(fragment)
 
@@ -495,7 +529,7 @@ function renderRows(items) {
     mobileFragment.querySelector('.mobile-period').textContent = periodText
     mobileFragment.querySelector('.mobile-managing').textContent = managingText
     mobileFragment.querySelector('.mobile-executing').textContent = executingText
-    mobileFragment.querySelector('.mobile-card-action').appendChild(createActionButton(item))
+    mobileFragment.querySelector('.mobile-card-action').appendChild(createActionControls(item))
 
     mobileBody.appendChild(mobileFragment)
   })
@@ -656,9 +690,7 @@ function paginateClient(items, page, pageSize = PAGE_SIZE) {
 }
 
 function getWorkflowItemsByStatus(workflowStatus) {
-  return Object.values(state.workflowMap)
-    .filter((item) => item.workflowStatus === workflowStatus)
-    .filter(matchesCurrentFilters)
+  return Object.values(state.workflowMap).filter((item) => item.workflowStatus === workflowStatus)
 }
 
 function updateTabCounts(openCount) {
@@ -931,16 +963,9 @@ function updateWorkflowButtons(itemId) {
       return
     }
 
-    const action = getTabAction({ id: itemId })
     const isBusy = state.togglingIds.has(itemId)
 
-    if (!action) {
-      return
-    }
-
     button.disabled = isBusy
-    button.textContent = action.label
-    button.title = action.label
   })
 }
 
@@ -954,7 +979,9 @@ async function moveWorkflow(itemId, workflowStatus) {
   const action =
     workflowStatus === 'pending'
       ? { confirmMessage: '이 공고를 지원예정 탭으로 이동할까요?' }
-      : { confirmMessage: '이 공고를 지원완료 탭으로 이동할까요?' }
+      : workflowStatus === 'completed'
+        ? { confirmMessage: '이 공고를 지원완료 탭으로 이동할까요?' }
+        : { confirmMessage: '이 공고를 지원사업 목록으로 되돌릴까요?' }
 
   if (!window.confirm(action.confirmMessage)) {
     return
@@ -964,11 +991,17 @@ async function moveWorkflow(itemId, workflowStatus) {
   updateWorkflowButtons(itemId)
 
   try {
-    await window.AppliedStore.setWorkflow(item, workflowStatus)
-    state.workflowMap[itemId] = {
-      ...item,
-      workflowStatus
+    if (workflowStatus === 'open') {
+      await window.AppliedStore.removeWorkflow(itemId)
+      delete state.workflowMap[itemId]
+    } else {
+      await window.AppliedStore.setWorkflow(item, workflowStatus)
+      state.workflowMap[itemId] = {
+        ...item,
+        workflowStatus
+      }
     }
+
     await loadAnnouncements()
   } catch (error) {
     console.error(error)

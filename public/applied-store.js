@@ -43,6 +43,7 @@
     return {
       ...value,
       id: value.id || id,
+      statusKey: value.statusKey || '',
       workflowStatus: normalizeWorkflowStatus(value.workflowStatus || value.status)
     }
   }
@@ -85,7 +86,20 @@
     global.localStorage.setItem(STORAGE_KEY, JSON.stringify(value))
   }
 
+  function removeLocal(id) {
+    const current = loadLocal()
+
+    if (!current[id]) {
+      return
+    }
+
+    delete current[id]
+    saveLocal(current)
+  }
+
   function serializeItem(item, workflowStatus) {
+    const statusKey = item.statusKey || ''
+
     return {
       id: item.id,
       title: item.title || '',
@@ -103,7 +117,8 @@
       summary: item.summary || '',
       searchText: item.searchText || '',
       postedAt: item.postedAt || '',
-      isOngoing: Boolean(item.isOngoing),
+      isOngoing: Boolean(item.isOngoing || statusKey === 'ongoing'),
+      statusKey,
       workflowStatus
     }
   }
@@ -125,7 +140,7 @@
     }
 
     const rows = await response.json()
-    return rows.reduce((acc, row) => {
+    const records = rows.reduce((acc, row) => {
       acc[row.announcement_id] = {
         id: row.announcement_id,
         title: row.announcement_title || '',
@@ -149,6 +164,9 @@
 
       return acc
     }, {})
+
+    saveLocal(records)
+    return records
   }
 
   async function upsertRemote(item, workflowStatus) {
@@ -192,6 +210,26 @@
     }
   }
 
+  async function removeRemote(id) {
+    const url =
+      `${supabaseUrl}/rest/v1/applied_announcements?` +
+      [
+        `profile_key=eq.${encodeURIComponent(profileKey)}`,
+        `announcement_id=eq.${encodeURIComponent(id)}`
+      ].join('&')
+
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: getHeaders({
+        Prefer: 'return=minimal'
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`DB delete failed: ${response.status}`)
+    }
+  }
+
   const AppliedStore = {
     async load() {
       if (isSupabaseEnabled()) {
@@ -213,6 +251,9 @@
         try {
           mode = 'supabase'
           await upsertRemote(item, workflowStatus)
+          const current = loadLocal()
+          current[item.id] = serializeItem(item, workflowStatus)
+          saveLocal(current)
           return
         } catch (error) {
           mode = 'local'
@@ -222,6 +263,21 @@
       const current = loadLocal()
       current[item.id] = serializeItem(item, workflowStatus)
       saveLocal(current)
+    },
+
+    async removeWorkflow(itemId) {
+      if (isSupabaseEnabled()) {
+        try {
+          mode = 'supabase'
+          await removeRemote(itemId)
+          removeLocal(itemId)
+          return
+        } catch (error) {
+          mode = 'local'
+        }
+      }
+
+      removeLocal(itemId)
     },
 
     getModeLabel() {

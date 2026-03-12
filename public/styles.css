@@ -525,6 +525,12 @@ tbody tr.new-row:hover {
   width: 4%;
 }
 
+.workflow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .workflow-action,
 .action-complete {
   display: inline-flex;
@@ -553,6 +559,11 @@ tbody tr.new-row:hover {
 .workflow-completed {
   background: rgba(31, 122, 63, 0.1);
   color: #176132;
+}
+
+.workflow-open {
+  background: rgba(28, 27, 24, 0.06);
+  color: var(--ink);
 }
 
 .workflow-action:disabled {
