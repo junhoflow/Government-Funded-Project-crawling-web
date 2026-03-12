@@ -87,16 +87,37 @@ using (true);
 
 create table if not exists public.support_announcements (
   id text primary key,
+  source_key text not null default '',
   source text not null default '',
+  source_id text not null default '',
   title text not null default '',
+  summary text not null default '',
   category text not null default '',
   region text not null default '',
+  managing_org text not null default '',
+  executing_org text not null default '',
+  supervising_institution_type text not null default '',
+  application_method text not null default '',
+  application_site text not null default '',
+  application_url text not null default '',
+  detail_url text not null default '',
+  origin_url text not null default '',
+  contact text not null default '',
+  apply_target text not null default '',
+  apply_age text not null default '',
+  experience text not null default '',
+  preferred text not null default '',
+  applicant_exclusion text not null default '',
   posted_at text not null default '',
   apply_start text not null default '',
   apply_end text not null default '',
-  status_key text not null default '',
-  sync_token text not null default '',
+  apply_period_text text not null default '',
+  search_text text not null default '',
+  first_seen_at text not null default '',
+  last_seen_at text not null default '',
+  tags jsonb not null default '[]'::jsonb,
   payload jsonb not null default '{}'::jsonb,
+  sync_token text not null default '',
   updated_at timestamptz not null default now()
 );
 
@@ -106,16 +127,37 @@ create table if not exists public.support_state (
   updated_at timestamptz not null default now()
 );
 
+alter table public.support_announcements add column if not exists source_key text not null default '';
 alter table public.support_announcements add column if not exists source text not null default '';
+alter table public.support_announcements add column if not exists source_id text not null default '';
 alter table public.support_announcements add column if not exists title text not null default '';
+alter table public.support_announcements add column if not exists summary text not null default '';
 alter table public.support_announcements add column if not exists category text not null default '';
 alter table public.support_announcements add column if not exists region text not null default '';
+alter table public.support_announcements add column if not exists managing_org text not null default '';
+alter table public.support_announcements add column if not exists executing_org text not null default '';
+alter table public.support_announcements add column if not exists supervising_institution_type text not null default '';
+alter table public.support_announcements add column if not exists application_method text not null default '';
+alter table public.support_announcements add column if not exists application_site text not null default '';
+alter table public.support_announcements add column if not exists application_url text not null default '';
+alter table public.support_announcements add column if not exists detail_url text not null default '';
+alter table public.support_announcements add column if not exists origin_url text not null default '';
+alter table public.support_announcements add column if not exists contact text not null default '';
+alter table public.support_announcements add column if not exists apply_target text not null default '';
+alter table public.support_announcements add column if not exists apply_age text not null default '';
+alter table public.support_announcements add column if not exists experience text not null default '';
+alter table public.support_announcements add column if not exists preferred text not null default '';
+alter table public.support_announcements add column if not exists applicant_exclusion text not null default '';
 alter table public.support_announcements add column if not exists posted_at text not null default '';
 alter table public.support_announcements add column if not exists apply_start text not null default '';
 alter table public.support_announcements add column if not exists apply_end text not null default '';
-alter table public.support_announcements add column if not exists status_key text not null default '';
-alter table public.support_announcements add column if not exists sync_token text not null default '';
+alter table public.support_announcements add column if not exists apply_period_text text not null default '';
+alter table public.support_announcements add column if not exists search_text text not null default '';
+alter table public.support_announcements add column if not exists first_seen_at text not null default '';
+alter table public.support_announcements add column if not exists last_seen_at text not null default '';
+alter table public.support_announcements add column if not exists tags jsonb not null default '[]'::jsonb;
 alter table public.support_announcements add column if not exists payload jsonb not null default '{}'::jsonb;
+alter table public.support_announcements add column if not exists sync_token text not null default '';
 alter table public.support_announcements add column if not exists updated_at timestamptz not null default now();
 
 alter table public.support_state add column if not exists state_value jsonb not null default '{}'::jsonb;

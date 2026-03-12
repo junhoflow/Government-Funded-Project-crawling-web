@@ -34,6 +34,86 @@ function writeDatabaseFile(db) {
   dbCache = db
 }
 
+function normalizeTags(value) {
+  if (Array.isArray(value)) {
+    return value.filter(Boolean)
+  }
+
+  return []
+}
+
+function toPersistedAnnouncement(item = {}) {
+  return {
+    id: item.id || '',
+    sourceKey: item.sourceKey || '',
+    source: item.source || '',
+    sourceId: item.sourceId || '',
+    title: item.title || '',
+    summary: item.summary || '',
+    category: item.category || '',
+    region: item.region || '',
+    managingOrg: item.managingOrg || '',
+    executingOrg: item.executingOrg || '',
+    supervisingInstitutionType: item.supervisingInstitutionType || '',
+    applicationMethod: item.applicationMethod || '',
+    applicationSite: item.applicationSite || '',
+    applicationUrl: item.applicationUrl || '',
+    detailUrl: item.detailUrl || '',
+    originUrl: item.originUrl || '',
+    contact: item.contact || '',
+    applyTarget: item.applyTarget || '',
+    applyAge: item.applyAge || '',
+    experience: item.experience || '',
+    preferred: item.preferred || '',
+    applicantExclusion: item.applicantExclusion || '',
+    applyStart: item.applyStart || '',
+    applyEnd: item.applyEnd || '',
+    applyPeriodText: item.applyPeriodText || '',
+    postedAt: item.postedAt || '',
+    isOngoing: Boolean(item.isOngoing),
+    searchText: item.searchText || '',
+    firstSeenAt: item.firstSeenAt || '',
+    lastSeenAt: item.lastSeenAt || '',
+    tags: normalizeTags(item.tags)
+  }
+}
+
+function fromRemoteAnnouncement(row = {}) {
+  return {
+    id: row.id || '',
+    sourceKey: row.source_key || '',
+    source: row.source || '',
+    sourceId: row.source_id || '',
+    title: row.title || '',
+    summary: row.summary || '',
+    category: row.category || '',
+    region: row.region || '',
+    managingOrg: row.managing_org || '',
+    executingOrg: row.executing_org || '',
+    supervisingInstitutionType: row.supervising_institution_type || '',
+    applicationMethod: row.application_method || '',
+    applicationSite: row.application_site || '',
+    applicationUrl: row.application_url || '',
+    detailUrl: row.detail_url || '',
+    originUrl: row.origin_url || '',
+    contact: row.contact || '',
+    applyTarget: row.apply_target || '',
+    applyAge: row.apply_age || '',
+    experience: row.experience || '',
+    preferred: row.preferred || '',
+    applicantExclusion: row.applicant_exclusion || '',
+    applyStart: row.apply_start || '',
+    applyEnd: row.apply_end || '',
+    applyPeriodText: row.apply_period_text || '',
+    postedAt: row.posted_at || '',
+    isOngoing: Boolean(row.is_ongoing),
+    searchText: row.search_text || '',
+    firstSeenAt: row.first_seen_at || '',
+    lastSeenAt: row.last_seen_at || '',
+    tags: normalizeTags(row.tags)
+  }
+}
+
 function readPublicConfig() {
   if (!fs.existsSync(PUBLIC_CONFIG_FILE)) {
     return {}
@@ -124,7 +204,7 @@ async function loadRemoteItems() {
   while (true) {
     const to = from + pageSize - 1
     const rows = await requestRemote(
-      `${REMOTE_ANNOUNCEMENTS_TABLE}?select=payload&order=id.asc`,
+      `${REMOTE_ANNOUNCEMENTS_TABLE}?select=id,source_key,source,source_id,title,summary,category,region,managing_org,executing_org,supervising_institution_type,application_method,application_site,application_url,detail_url,origin_url,contact,apply_target,apply_age,experience,preferred,applicant_exclusion,apply_start,apply_end,apply_period_text,posted_at,is_ongoing,search_text,first_seen_at,last_seen_at,tags&order=id.asc`,
       {
         headers: {
           Range: `${from}-${to}`,
@@ -138,8 +218,8 @@ async function loadRemoteItems() {
     }
 
     rows.forEach((row) => {
-      if (row && row.payload) {
-        items.push(row.payload)
+      if (row && row.id) {
+        items.push(fromRemoteAnnouncement(row))
       }
     })
 
@@ -197,7 +277,7 @@ function loadDatabase() {
 }
 
 async function saveRemoteDatabase(db) {
-  const items = Array.isArray(db.items) ? db.items : []
+  const items = Array.isArray(db.items) ? db.items.map(toPersistedAnnouncement) : []
   const syncToken = formatDateTime()
   const batchSize = 250
 
@@ -211,16 +291,37 @@ async function saveRemoteDatabase(db) {
       body: JSON.stringify(
         batch.map((item) => ({
           id: item.id,
+          source_key: item.sourceKey || '',
           source: item.source || '',
+          source_id: item.sourceId || '',
           title: item.title || '',
+          summary: item.summary || '',
           category: item.category || '',
           region: item.region || '',
+          managing_org: item.managingOrg || '',
+          executing_org: item.executingOrg || '',
+          supervising_institution_type: item.supervisingInstitutionType || '',
+          application_method: item.applicationMethod || '',
+          application_site: item.applicationSite || '',
+          application_url: item.applicationUrl || '',
+          detail_url: item.detailUrl || '',
+          origin_url: item.originUrl || '',
+          contact: item.contact || '',
+          apply_target: item.applyTarget || '',
+          apply_age: item.applyAge || '',
+          experience: item.experience || '',
+          preferred: item.preferred || '',
+          applicant_exclusion: item.applicantExclusion || '',
           posted_at: item.postedAt || '',
           apply_start: item.applyStart || '',
           apply_end: item.applyEnd || '',
-          status_key: item.statusKey || '',
+          apply_period_text: item.applyPeriodText || '',
+          search_text: item.searchText || '',
+          first_seen_at: item.firstSeenAt || '',
+          last_seen_at: item.lastSeenAt || '',
+          tags: normalizeTags(item.tags),
+          payload: {},
           sync_token: syncToken,
-          payload: item,
           updated_at: formatDateTime()
         }))
       )
@@ -248,10 +349,15 @@ async function saveRemoteDatabase(db) {
 
 async function saveDatabase(db) {
   ensureStorage()
-  writeDatabaseFile(db)
+  const persistedDb = {
+    ...db,
+    items: Array.isArray(db.items) ? db.items.map(toPersistedAnnouncement) : []
+  }
+
+  writeDatabaseFile(persistedDb)
 
   if (getRemoteConfig().enabled) {
-    await saveRemoteDatabase(db)
+    await saveRemoteDatabase(persistedDb)
   }
 }
 
