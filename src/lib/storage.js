@@ -252,7 +252,13 @@ async function requestRemote(pathname, options = {}) {
     return null
   }
 
-  return response.json()
+  const text = await response.text()
+
+  if (!text) {
+    return null
+  }
+
+  return JSON.parse(text)
 }
 
 async function deleteRemoteAnnouncements(ids) {
@@ -287,7 +293,7 @@ async function loadRemoteItems() {
   while (true) {
     const to = from + pageSize - 1
     const rows = await requestRemote(
-      `${REMOTE_ANNOUNCEMENTS_TABLE}?select=id,source_key,source,source_id,title,summary,category,region,managing_org,executing_org,supervising_institution_type,application_method,application_site,application_url,detail_url,origin_url,contact,apply_target,apply_age,experience,preferred,applicant_exclusion,apply_start,apply_end,apply_period_text,posted_at,is_ongoing,search_text,first_seen_at,last_seen_at,tags&order=id.asc`,
+      `${REMOTE_ANNOUNCEMENTS_TABLE}?select=id,source_key,source,source_id,title,summary,category,region,managing_org,executing_org,supervising_institution_type,application_method,application_site,application_url,detail_url,origin_url,contact,apply_target,apply_age,experience,preferred,applicant_exclusion,apply_start,apply_end,apply_period_text,posted_at,is_ongoing,status_key,is_new,search_text,first_seen_at,last_seen_at,tags&order=id.asc`,
       {
         headers: {
           Range: `${from}-${to}`,
