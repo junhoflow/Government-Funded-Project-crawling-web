@@ -824,6 +824,22 @@ function renderSyncStages(progress) {
   })
 }
 
+function getSyncStatusText(status) {
+  if (status && status.isRunning) {
+    return '동기화 중'
+  }
+
+  if ((status && status.summary && status.summary.error) || String(status && status.message ? status.message : '').includes('실패')) {
+    return '동기화 실패'
+  }
+
+  if ((status && status.summary && status.summary.finishedAt) || status.finishedAt) {
+    return '동기화 완료'
+  }
+
+  return '대기 중'
+}
+
 async function loadOpenAnnouncements() {
   const hiddenIds = new Set(Object.keys(state.workflowMap))
   const firstPage = await fetchOpenAnnouncementsPage(state.page, PAGE_SIZE * 2, true)
@@ -897,7 +913,7 @@ async function loadSyncStatus() {
   state.lastKnownSyncRunning = state.syncRunning
   state.syncRunning = Boolean(status.isRunning)
 
-  byId('sync-status').textContent = status.message || 'GitHub Actions 대기 중'
+  byId('sync-status').textContent = getSyncStatusText(status)
   byId('sync-button').disabled = false
   byId('sync-progress-fill').style.width = `${(status.progress && status.progress.percent) || 0}%`
   byId('sync-progress-text').textContent = `${(status.progress && status.progress.percent) || 0}%`
@@ -955,7 +971,7 @@ async function startSync() {
       throw new Error(payload.error || `동기화 호출 실패 (${response.status})`)
     }
 
-    byId('sync-status').textContent = payload.message || '동기화 요청 전송됨'
+    byId('sync-status').textContent = '동기화 중'
     byId('sync-progress-text').textContent = '0%'
     byId('sync-progress-fill').style.width = '0%'
 

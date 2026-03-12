@@ -50,11 +50,19 @@ body {
 
 .hero {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   gap: 12px;
   padding: 18px 24px;
   border-radius: calc(var(--radius) + 8px);
+}
+
+.hero-title {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.1;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .eyebrow {
@@ -93,7 +101,6 @@ h1 {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  width: 100%;
 }
 
 .primary-button,
@@ -200,13 +207,12 @@ h1 {
 
 .status-sync-card {
   display: grid;
-  grid-template-columns: minmax(0, 170px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
   grid-template-areas:
     "label progress"
-    "status progress"
-    "stages stages";
+    "status progress";
   column-gap: 14px;
-  row-gap: 4px;
+  row-gap: 6px;
   align-items: center;
 }
 
@@ -229,6 +235,10 @@ h1 {
 .status-sync-card strong {
   grid-area: status;
   margin-top: 0;
+}
+
+.status-sync-card .sync-progress {
+  align-self: center;
 }
 
 .sync-progress {
@@ -259,39 +269,6 @@ h1 {
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 700;
-}
-
-.sync-stage-list {
-  grid-area: stages;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
-  gap: 6px;
-  margin: 2px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.sync-stage-item,
-.sync-stage-empty {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 10px;
-  background: rgba(17, 75, 95, 0.05);
-  color: var(--muted);
-  font-size: 0.76rem;
-}
-
-.sync-stage-label {
-  color: var(--ink);
-  font-weight: 700;
-}
-
-.sync-stage-meta {
-  color: var(--muted);
-  white-space: nowrap;
 }
 
 .filter-panel,
@@ -726,6 +703,8 @@ tbody tr.urgent-row:hover {
 
   .hero {
     justify-content: stretch;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .status-summary-card,
@@ -748,9 +727,9 @@ tbody tr.urgent-row:hover {
     border-bottom: 0;
   }
 
-  .sync-stage-list {
-    grid-template-columns: 1fr;
-  }
+.sync-stage-list {
+  display: none;
+}
 
   .hero,
   .filter-panel,
