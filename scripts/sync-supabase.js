@@ -9,7 +9,8 @@ function createStageConfig() {
     bizinfoOpen: { label: '기업마당 진행공고', weight: 1 },
     fanfandaero: { label: '판판대로', weight: 1 },
     sodam: { label: '소담상회', weight: 1 },
-    bizok: { label: '인천 비즈오케이', weight: 1 }
+    bizok: { label: '인천 비즈오케이', weight: 1 },
+    thevc: { label: 'THE VC', weight: 1 }
   }
 }
 
@@ -64,7 +65,7 @@ async function main() {
   try {
     const summary = await syncSupportPrograms({
       includeBizinfoClosed: false,
-      includeTheVc: false,
+      includeTheVc: true,
       onProgress: async (progress) => {
         syncState.message = progress.message || syncState.message
 
