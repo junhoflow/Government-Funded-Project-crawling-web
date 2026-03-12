@@ -1038,7 +1038,11 @@ async function loadAppliedState() {
     state.workflowMap = {}
   }
 
-  byId('storage-mode').textContent = window.AppliedStore.getModeLabel()
+  const storageMode = byId('storage-mode')
+
+  if (storageMode) {
+    storageMode.textContent = window.AppliedStore.getModeLabel()
+  }
 }
 
 function updateWorkflowButtons(itemId) {
