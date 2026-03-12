@@ -114,6 +114,42 @@ function fromRemoteAnnouncement(row = {}) {
   }
 }
 
+function isSamePersistedAnnouncement(left = {}, right = {}) {
+  return (
+    left.id === right.id &&
+    left.sourceKey === right.sourceKey &&
+    left.source === right.source &&
+    left.sourceId === right.sourceId &&
+    left.title === right.title &&
+    left.summary === right.summary &&
+    left.category === right.category &&
+    left.region === right.region &&
+    left.managingOrg === right.managingOrg &&
+    left.executingOrg === right.executingOrg &&
+    left.supervisingInstitutionType === right.supervisingInstitutionType &&
+    left.applicationMethod === right.applicationMethod &&
+    left.applicationSite === right.applicationSite &&
+    left.applicationUrl === right.applicationUrl &&
+    left.detailUrl === right.detailUrl &&
+    left.originUrl === right.originUrl &&
+    left.contact === right.contact &&
+    left.applyTarget === right.applyTarget &&
+    left.applyAge === right.applyAge &&
+    left.experience === right.experience &&
+    left.preferred === right.preferred &&
+    left.applicantExclusion === right.applicantExclusion &&
+    left.applyStart === right.applyStart &&
+    left.applyEnd === right.applyEnd &&
+    left.applyPeriodText === right.applyPeriodText &&
+    left.postedAt === right.postedAt &&
+    left.isOngoing === right.isOngoing &&
+    left.searchText === right.searchText &&
+    left.firstSeenAt === right.firstSeenAt &&
+    left.lastSeenAt === right.lastSeenAt &&
+    JSON.stringify(normalizeTags(left.tags)) === JSON.stringify(normalizeTags(right.tags))
+  )
+}
+
 function readPublicConfig() {
   if (!fs.existsSync(PUBLIC_CONFIG_FILE)) {
     return {}
@@ -186,6 +222,22 @@ async function requestRemote(pathname, options = {}) {
   }
 
   return response.json()
+}
+
+async function deleteRemoteAnnouncements(ids) {
+  const chunkSize = 200
+
+  for (let index = 0; index < ids.length; index += chunkSize) {
+    const chunk = ids.slice(index, index + chunkSize)
+    if (!chunk.length) {
+      continue
+    }
+
+    const encodedIds = chunk.map((id) => `"${String(id).replace(/"/g, '\\"')}"`).join(',')
+    await requestRemote(`${REMOTE_ANNOUNCEMENTS_TABLE}?id=in.(${encodedIds})`, {
+      method: 'DELETE'
+    })
+  }
 }
 
 async function loadRemoteMeta() {
@@ -276,13 +328,18 @@ function loadDatabase() {
   return dbCache
 }
 
-async function saveRemoteDatabase(db) {
+async function saveRemoteDatabase(db, previousDb = null) {
   const items = Array.isArray(db.items) ? db.items.map(toPersistedAnnouncement) : []
-  const syncToken = formatDateTime()
+  const previousItems = Array.isArray(previousDb && previousDb.items) ? previousDb.items.map(toPersistedAnnouncement) : []
+  const previousById = new Map(previousItems.map((item) => [item.id, item]))
+  const currentIds = new Set(items.map((item) => item.id))
+  const changedItems = items.filter((item) => !isSamePersistedAnnouncement(previousById.get(item.id), item))
+  const removedIds = previousItems.filter((item) => !currentIds.has(item.id)).map((item) => item.id)
   const batchSize = 250
+  const syncToken = formatDateTime()
 
-  for (let index = 0; index < items.length; index += batchSize) {
-    const batch = items.slice(index, index + batchSize)
+  for (let index = 0; index < changedItems.length; index += batchSize) {
+    const batch = changedItems.slice(index, index + batchSize)
     await requestRemote(`${REMOTE_ANNOUNCEMENTS_TABLE}?on_conflict=id`, {
       method: 'POST',
       headers: {
@@ -328,9 +385,9 @@ async function saveRemoteDatabase(db) {
     })
   }
 
-  await requestRemote(`${REMOTE_ANNOUNCEMENTS_TABLE}?sync_token=neq.${encodeURIComponent(syncToken)}`, {
-    method: 'DELETE'
-  })
+  if (removedIds.length) {
+    await deleteRemoteAnnouncements(removedIds)
+  }
 
   await requestRemote(`${REMOTE_STATE_TABLE}?on_conflict=state_key`, {
     method: 'POST',
@@ -347,8 +404,9 @@ async function saveRemoteDatabase(db) {
   })
 }
 
-async function saveDatabase(db) {
+async function saveDatabase(db, options = {}) {
   ensureStorage()
+  const previousDb = options.previousDb || null
   const persistedDb = {
     ...db,
     items: Array.isArray(db.items) ? db.items.map(toPersistedAnnouncement) : []
@@ -357,7 +415,7 @@ async function saveDatabase(db) {
   writeDatabaseFile(persistedDb)
 
   if (getRemoteConfig().enabled) {
-    await saveRemoteDatabase(persistedDb)
+    await saveRemoteDatabase(persistedDb, previousDb)
   }
 }
 

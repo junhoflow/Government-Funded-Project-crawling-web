@@ -133,6 +133,8 @@ async function syncSupportPrograms(options = {}) {
       lastSyncAt: summary.finishedAt,
       lastSyncSummary: summary
     }
+  }, {
+    previousDb: db
   })
 
   onProgress({ stage: 'sync', message: '동기화 완료', summary })
