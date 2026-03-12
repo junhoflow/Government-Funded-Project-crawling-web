@@ -1,6 +1,6 @@
 {
-  "name": "Government Funded Project",
-  "short_name": "Gov Funded",
+  "name": "Government Funded Project crawling web",
+  "short_name": "Gov Crawl",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f8f4ec",

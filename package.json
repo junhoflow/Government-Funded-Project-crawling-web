@@ -1,7 +1,7 @@
 {
-  "name": "government-funded-project",
+  "name": "government-funded-project-crawling-web",
   "version": "1.0.0",
-  "description": "Government Funded Project web dashboard with filtering and Excel export.",
+  "description": "Government Funded Project crawling web dashboard with filtering and Excel export.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

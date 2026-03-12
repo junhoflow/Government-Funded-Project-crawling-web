@@ -1,4 +1,4 @@
-# Government Funded Project
+# Government Funded Project crawling web
 
 윈도우와 맥에서 모두 실행 가능한 Node.js 기반 웹 앱입니다. 현재 구현된 수집 대상은 아래 채널입니다.
 
