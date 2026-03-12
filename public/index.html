@@ -33,19 +33,21 @@
       </header>
 
       <section class="status-grid">
-        <article class="status-card">
-          <span class="status-label">전체 건수</span>
-          <strong id="total-count">0</strong>
+        <article class="status-card status-summary-card">
+          <div class="status-summary-item">
+            <span class="status-label">전체 건수</span>
+            <strong id="total-count">0</strong>
+          </div>
+          <div class="status-summary-item">
+            <span class="status-label">현재 검색 결과</span>
+            <strong id="filtered-count">0</strong>
+          </div>
+          <div class="status-summary-item">
+            <span class="status-label">마지막 동기화</span>
+            <strong id="last-sync">-</strong>
+          </div>
         </article>
-        <article class="status-card">
-          <span class="status-label">현재 검색 결과</span>
-          <strong id="filtered-count">0</strong>
-        </article>
-        <article class="status-card">
-          <span class="status-label">마지막 동기화</span>
-          <strong id="last-sync">-</strong>
-        </article>
-        <article class="status-card">
+        <article class="status-card status-sync-card">
           <span class="status-label">동기화 상태</span>
           <strong id="sync-status">대기 중</strong>
           <div class="sync-progress">

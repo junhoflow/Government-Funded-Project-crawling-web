@@ -150,14 +150,45 @@ h1 {
 
 .status-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 2.1fr);
   gap: 16px;
   margin-top: 18px;
+  align-items: stretch;
 }
 
 .status-card {
   border-radius: var(--radius);
   padding: 20px 22px;
+}
+
+.status-summary-card {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.status-summary-item {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(28, 27, 24, 0.08);
+}
+
+.status-summary-item:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.status-sync-card {
+  display: grid;
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  grid-template-areas:
+    "label progress"
+    "status progress"
+    "stages stages";
+  column-gap: 18px;
+  row-gap: 8px;
+  align-items: center;
 }
 
 .status-label {
@@ -172,12 +203,22 @@ h1 {
   font-size: 1.25rem;
 }
 
+.status-sync-card .status-label {
+  grid-area: label;
+}
+
+.status-sync-card strong {
+  grid-area: status;
+  margin-top: 0;
+}
+
 .sync-progress {
+  grid-area: progress;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
-  margin-top: 14px;
+  margin-top: 0;
 }
 
 .sync-progress-bar {
@@ -202,9 +243,11 @@ h1 {
 }
 
 .sync-stage-list {
+  grid-area: stages;
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 8px;
-  margin: 14px 0 0;
+  margin: 4px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -609,10 +652,22 @@ tbody tr.urgent-row:hover {
 
 @media (max-width: 1180px) {
   .hero,
-  .status-grid,
   .top-filter-grid,
   .filter-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .status-sync-card {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "label"
+      "status"
+      "progress"
+      "stages";
   }
 }
 
@@ -632,6 +687,15 @@ tbody tr.urgent-row:hover {
 
   .filter-toggle-row {
     display: grid;
+  }
+
+  .status-summary-card,
+  .status-sync-card {
+    gap: 12px;
+  }
+
+  .sync-stage-list {
+    grid-template-columns: 1fr;
   }
 
   .hero,
