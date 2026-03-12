@@ -465,7 +465,7 @@ tbody tr.new-row:hover {
 }
 
 .action-col {
-  width: 16%;
+  width: 9%;
 }
 
 .source-col {
@@ -495,7 +495,7 @@ tbody tr.new-row:hover {
 }
 
 .action-cell {
-  width: 16%;
+  width: 9%;
 }
 
 .source-cell {
@@ -527,9 +527,9 @@ tbody tr.new-row:hover {
 }
 
 .workflow-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  gap: 4px;
+  width: 100%;
 }
 
 .workflow-action,
@@ -537,12 +537,14 @@ tbody tr.new-row:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 72px;
-  min-height: 30px;
+  width: 100%;
+  min-width: 0;
+  min-height: 26px;
   border-radius: 999px;
-  padding: 5px 9px;
+  padding: 4px 6px;
   font: inherit;
-  font-size: 0.74rem;
+  font-size: 0.68rem;
+  line-height: 1.1;
   font-weight: 700;
 }
 
