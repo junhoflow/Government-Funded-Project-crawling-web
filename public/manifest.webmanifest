@@ -1,0 +1,9 @@
+{
+  "name": "Government Funded Project",
+  "short_name": "Gov Funded",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f8f4ec",
+  "theme_color": "#114b5f",
+  "lang": "ko"
+}

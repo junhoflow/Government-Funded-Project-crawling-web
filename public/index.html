@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#114b5f">
+    <title>Government Funded Project</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Government Funded Project</p>
+          <h1>Government Funded Project</h1>
+          <p class="hero-copy">
+            K-Startup, 기업마당, 판판대로, 소담상회, 인천 비즈오케이, THE VC 공고를 통합 수집하고 웹 필터와 엑셀 내보내기로 바로 선별할 수 있습니다.
+          </p>
+          <p class="hero-meta">지원 체크 저장: <strong id="storage-mode">이 기기 저장</strong></p>
+        </div>
+        <div class="hero-actions">
+          <button id="sync-button" class="primary-button">지금 동기화</button>
+          <a id="export-link" class="excel-button" href="#">현재 조건 엑셀 다운로드</a>
+        </div>
+      </header>
+
+      <section class="status-grid">
+        <article class="status-card">
+          <span class="status-label">전체 건수</span>
+          <strong id="total-count">0</strong>
+        </article>
+        <article class="status-card">
+          <span class="status-label">현재 검색 결과</span>
+          <strong id="filtered-count">0</strong>
+        </article>
+        <article class="status-card">
+          <span class="status-label">마지막 동기화</span>
+          <strong id="last-sync">-</strong>
+        </article>
+        <article class="status-card">
+          <span class="status-label">동기화 상태</span>
+          <strong id="sync-status">대기 중</strong>
+          <div class="sync-progress">
+            <div class="sync-progress-bar">
+              <div id="sync-progress-fill" class="sync-progress-fill"></div>
+            </div>
+            <span id="sync-progress-text" class="sync-progress-text">0%</span>
+          </div>
+        </article>
+      </section>
+
+      <section class="filter-panel top-filter-panel">
+        <div class="filter-toggle-row">
+          <div class="top-filter-grid">
+            <label>
+              <span>키워드</span>
+              <input type="text" id="keyword" placeholder="공고명, 기관명, 내용 검색">
+            </label>
+            <label>
+              <span>정렬</span>
+              <select id="sort">
+                <option value="latest">공고일 최신순</option>
+                <option value="deadline">마감일 순</option>
+                <option value="title">공고명 순</option>
+                <option value="source">출처 순</option>
+              </select>
+            </label>
+          </div>
+          <button id="toggle-filters" class="secondary-button" type="button">필터 닫기</button>
+        </div>
+        <div id="advanced-filters" class="advanced-filters">
+          <div class="filter-grid">
+            <label>
+              <span>출처</span>
+              <select id="source">
+                <option value="">전체 출처</option>
+              </select>
+            </label>
+            <label>
+              <span>공고명</span>
+              <input type="text" id="title" placeholder="공고명 검색">
+            </label>
+            <label>
+              <span>지역</span>
+              <select id="region">
+                <option value="">전체 지역</option>
+              </select>
+            </label>
+            <label>
+              <span>지원대상</span>
+              <input type="text" id="applyTarget" placeholder="지원대상 검색" value="예비">
+            </label>
+            <label>
+              <span>주관기관</span>
+              <input type="text" id="managingOrg" placeholder="주관기관 검색">
+            </label>
+            <label>
+              <span>수행기관</span>
+              <input type="text" id="executingOrg" placeholder="수행기관 검색">
+            </label>
+            <label>
+              <span>신청기간</span>
+              <input type="text" id="period" placeholder="예: 2026-03">
+            </label>
+            <label>
+              <span>상태</span>
+              <select id="status">
+                <option value="">전체 상태</option>
+                <option value="scheduled">예정</option>
+                <option value="ongoing" selected>모집중</option>
+                <option value="closed">마감/지난공고</option>
+              </select>
+            </label>
+            <label class="category-field">
+              <span>분야</span>
+              <div id="category" class="category-chips" aria-label="분야 필터"></div>
+            </label>
+          </div>
+          <div class="filter-actions">
+            <button id="apply-filters" class="primary-button" type="button">필터 적용</button>
+            <button id="reset-filters" class="secondary-button" type="button">초기화</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="table-panel">
+        <div class="table-header">
+          <div>
+            <h2>지원사업 목록</h2>
+            <p id="result-summary">결과를 불러오는 중입니다.</p>
+          </div>
+          <div class="pagination-box">
+            <button id="prev-page" class="pager-button">이전</button>
+            <span id="page-indicator">1 / 1</span>
+            <button id="next-page" class="pager-button">다음</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <colgroup>
+              <col class="applied-col">
+              <col class="source-col">
+              <col class="title-col">
+              <col class="category-col">
+              <col class="region-col">
+              <col class="managing-col">
+              <col class="executing-col">
+              <col class="period-col">
+              <col class="status-col">
+            </colgroup>
+            <thead>
+              <tr class="column-row">
+                <th>지원</th>
+                <th>출처</th>
+                <th>공고명</th>
+                <th>분야</th>
+                <th>지역</th>
+                <th>주관기관</th>
+                <th>수행기관</th>
+                <th>신청기간</th>
+                <th>상태</th>
+              </tr>
+            </thead>
+            <tbody id="results-body"></tbody>
+          </table>
+        </div>
+        <div id="mobile-results" class="mobile-results"></div>
+      </section>
+    </div>
+
+    <template id="row-template">
+      <tr>
+        <td class="applied-cell"></td>
+        <td class="source-cell"></td>
+        <td class="title-cell"></td>
+        <td class="category-cell"></td>
+        <td class="region-cell"></td>
+        <td class="managing-cell"></td>
+        <td class="executing-cell"></td>
+        <td class="period-cell"></td>
+        <td class="status-cell"></td>
+      </tr>
+    </template>
+
+    <template id="mobile-card-template">
+      <article class="mobile-card">
+        <div class="mobile-card-header">
+          <div class="mobile-card-badges"></div>
+          <div class="mobile-card-applied"></div>
+        </div>
+        <a class="mobile-card-title" target="_blank" rel="noreferrer"></a>
+        <div class="mobile-card-meta"></div>
+        <dl class="mobile-card-grid">
+          <div>
+            <dt>신청기간</dt>
+            <dd class="mobile-period"></dd>
+          </div>
+          <div>
+            <dt>지역</dt>
+            <dd class="mobile-region"></dd>
+          </div>
+          <div>
+            <dt>주관기관</dt>
+            <dd class="mobile-managing"></dd>
+          </div>
+          <div>
+            <dt>수행기관</dt>
+            <dd class="mobile-executing"></dd>
+          </div>
+        </dl>
+      </article>
+    </template>
+
+    <script src="./config.js"></script>
+    <script src="./applied-store.js"></script>
+    <script src="./app.js"></script>
+  </body>
+  </html>
