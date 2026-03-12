@@ -44,7 +44,7 @@ const state = {
   page: 1,
   totalPages: 1,
   syncRunning: false,
-  filtersOpen: true,
+  filtersOpen: false,
   lastKnownSyncRunning: false,
   lastSyncAt: '',
   currentItems: [],
@@ -421,6 +421,12 @@ function populateCategoryChips(values) {
     label.appendChild(input)
     label.appendChild(text)
     container.appendChild(label)
+  })
+}
+
+function clearAllCategories() {
+  Array.from(byId('category').querySelectorAll('input[type="checkbox"]')).forEach((checkbox) => {
+    checkbox.checked = false
   })
 }
 
@@ -1157,6 +1163,9 @@ byId('reset-filters').addEventListener('click', async () => {
 byId('toggle-filters').addEventListener('click', () => {
   state.filtersOpen = !state.filtersOpen
   updateFilterPanelState()
+})
+byId('clear-categories').addEventListener('click', () => {
+  clearAllCategories()
 })
 byId('tab-open').addEventListener('click', async () => {
   await setActiveTab('open')

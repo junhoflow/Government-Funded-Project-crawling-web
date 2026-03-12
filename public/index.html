@@ -13,7 +13,7 @@
   <body>
     <div class="page-shell">
       <header class="hero">
-        <h3 class="sr-only">정부지원사업 통합 WEB</h3>
+        <h1 class="sr-only">정부지원사업 통합 WEB</h1>
         <div class="hero-actions">
           <button id="sync-button" class="primary-button">지금 동기화</button>
           <a id="export-link" class="excel-button" href="#"
@@ -72,10 +72,10 @@
             </label>
           </div>
           <button id="toggle-filters" class="secondary-button" type="button">
-            필터 닫기
+            필터 열기
           </button>
         </div>
-        <div id="advanced-filters" class="advanced-filters">
+        <div id="advanced-filters" class="advanced-filters hidden">
           <div class="filter-grid">
             <label>
               <span>출처</span>
@@ -128,7 +128,16 @@
               </select>
             </label>
             <label class="category-field">
-              <span>분야</span>
+              <span class="category-field-header">
+                <span>분야</span>
+                <button
+                  id="clear-categories"
+                  class="inline-clear-button"
+                  type="button"
+                >
+                  전체 해제
+                </button>
+              </span>
               <div
                 id="category"
                 class="category-chips"
