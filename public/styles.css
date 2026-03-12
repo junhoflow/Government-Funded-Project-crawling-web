@@ -59,7 +59,7 @@ body {
 
 .hero-title {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: 1.12rem;
   line-height: 1.1;
   font-weight: 800;
   white-space: nowrap;
@@ -210,7 +210,8 @@ h1 {
   grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
   grid-template-areas:
     "label progress"
-    "status progress";
+    "status progress"
+    "stages stages";
   column-gap: 14px;
   row-gap: 6px;
   align-items: center;
@@ -269,6 +270,47 @@ h1 {
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 700;
+}
+
+.sync-stage-list {
+  grid-area: stages;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+}
+
+.sync-stage-item,
+.sync-stage-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 0;
+  padding: 5px 7px;
+  border-radius: 10px;
+  background: rgba(17, 75, 95, 0.05);
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.sync-stage-label {
+  color: var(--ink);
+  font-weight: 700;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sync-stage-meta {
+  color: var(--muted);
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .filter-panel,
@@ -707,6 +749,10 @@ tbody tr.urgent-row:hover {
     align-items: stretch;
   }
 
+  .hero-title {
+    white-space: normal;
+  }
+
   .status-summary-card,
   .status-sync-card {
     gap: 12px;
@@ -727,9 +773,11 @@ tbody tr.urgent-row:hover {
     border-bottom: 0;
   }
 
-.sync-stage-list {
-  display: none;
-}
+  .sync-stage-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
 
   .hero,
   .filter-panel,
