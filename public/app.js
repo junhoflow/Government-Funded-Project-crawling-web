@@ -60,6 +60,10 @@ const supabaseAnonKey = String(appConfig.supabaseAnonKey || '')
 const workflowUrl = String(appConfig.syncWorkflowUrl || REPO_WORKFLOW_URL)
 const syncFunctionUrl = String(appConfig.syncFunctionUrl || (supabaseUrl ? `${supabaseUrl}/functions/v1/trigger-sync` : ''))
 const supabaseRestBase = supabaseUrl ? `${supabaseUrl}/rest/v1` : ''
+const accessGateEnabled = Boolean(appConfig.accessGateEnabled)
+const accessPasswordHash = String(appConfig.accessPasswordHash || '')
+const accessSessionKey = String(appConfig.accessSessionKey || 'government-funded-project.access.v1')
+let accessGranted = !accessGateEnabled || !accessPasswordHash
 
 const filterIds = [
   'keyword',
@@ -77,6 +81,66 @@ const filterIds = [
 
 function byId(id) {
   return document.getElementById(id)
+}
+
+async function sha256Hex(value) {
+  const source = new TextEncoder().encode(String(value || ''))
+  const buffer = await window.crypto.subtle.digest('SHA-256', source)
+  return Array.from(new Uint8Array(buffer))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+function denyAccess() {
+  document.body.innerHTML =
+    '<main style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#f8f4ec;color:#1c1b18;font-family:IBM Plex Sans KR, Noto Sans KR, sans-serif;">' +
+    '<div style="max-width:420px;padding:28px 24px;border:1px solid rgba(28,27,24,0.12);border-radius:20px;background:#fffaf2;text-align:center;box-shadow:0 18px 45px rgba(24,20,14,0.08);">' +
+    '<strong style="display:block;font-size:1.1rem;">접근이 취소되었습니다.</strong>' +
+    '<p style="margin:12px 0 0;color:#6d665c;line-height:1.6;">다시 접속해서 비밀번호를 입력하세요.</p>' +
+    '</div>' +
+    '</main>'
+}
+
+async function ensureAccess() {
+  if (!accessGateEnabled || !accessPasswordHash) {
+    accessGranted = true
+    return true
+  }
+
+  if (window.sessionStorage.getItem(accessSessionKey) === 'granted') {
+    accessGranted = true
+    return true
+  }
+
+  const appRoot = document.querySelector('.page-shell')
+
+  if (appRoot) {
+    appRoot.style.visibility = 'hidden'
+  }
+
+  while (true) {
+    const entered = window.prompt('비밀번호를 입력하세요.')
+
+    if (entered === null) {
+      denyAccess()
+      return false
+    }
+
+    const enteredHash = await sha256Hex(entered)
+
+    if (enteredHash === accessPasswordHash) {
+      window.sessionStorage.setItem(accessSessionKey, 'granted')
+      accessGranted = true
+
+      if (appRoot) {
+        appRoot.style.visibility = ''
+      }
+
+      return true
+    }
+
+    window.alert('비밀번호가 올바르지 않습니다.')
+  }
 }
 
 function isSupabaseReady() {
@@ -1124,6 +1188,10 @@ document.addEventListener('click', async (event) => {
 })
 
 setInterval(async () => {
+  if (!accessGranted) {
+    return
+  }
+
   try {
     await loadSyncStatus()
 
@@ -1136,6 +1204,17 @@ setInterval(async () => {
   }
 }, 10000)
 
-updateFilterPanelState()
-updateExportLink()
-refreshAll()
+async function boot() {
+  updateFilterPanelState()
+  updateExportLink()
+
+  const allowed = await ensureAccess()
+
+  if (!allowed) {
+    return
+  }
+
+  await refreshAll()
+}
+
+boot()
