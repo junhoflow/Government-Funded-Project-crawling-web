@@ -307,7 +307,18 @@ async function collectTheVc(onProgress = () => {}) {
     })
   }
 
-  return collectPublicList(onProgress)
+  try {
+    return await collectPublicList(onProgress)
+  } catch (error) {
+    onProgress({
+      stage: 'thevc',
+      phase: 'done',
+      current: 1,
+      total: 1,
+      message: `THE VC 수집 건너뜀: ${error.message}`
+    })
+    return []
+  }
 }
 
 module.exports = {

@@ -7,6 +7,40 @@ const { collectTheVc } = require('../collectors/thevc')
 const { loadDatabase, saveDatabase } = require('../lib/storage')
 const { formatDateTime, getAnnouncementStatus, isDateNearToday } = require('../lib/utils')
 
+function compactSyncedItem(item) {
+  return {
+    id: item.id || '',
+    sourceKey: item.sourceKey || '',
+    source: item.source || '',
+    sourceId: item.sourceId || '',
+    title: item.title || '',
+    summary: item.summary || '',
+    category: item.category || '',
+    region: item.region || '',
+    managingOrg: item.managingOrg || '',
+    executingOrg: item.executingOrg || '',
+    supervisingInstitutionType: item.supervisingInstitutionType || '',
+    applicationMethod: item.applicationMethod || '',
+    applicationSite: item.applicationSite || '',
+    applicationUrl: item.applicationUrl || '',
+    detailUrl: item.detailUrl || '',
+    originUrl: item.originUrl || '',
+    contact: item.contact || '',
+    applyTarget: item.applyTarget || '',
+    applyAge: item.applyAge || '',
+    experience: item.experience || '',
+    preferred: item.preferred || '',
+    applicantExclusion: item.applicantExclusion || '',
+    applyStart: item.applyStart || '',
+    applyEnd: item.applyEnd || '',
+    applyPeriodText: item.applyPeriodText || '',
+    postedAt: item.postedAt || '',
+    isOngoing: Boolean(item.isOngoing),
+    searchText: item.searchText || '',
+    tags: Array.isArray(item.tags) ? item.tags.filter(Boolean) : []
+  }
+}
+
 function resolveFirstSeenAt(previous, item, db) {
   if (previous && previous.firstSeenAt) {
     return previous.firstSeenAt
@@ -102,13 +136,13 @@ async function syncSupportPrograms(options = {}) {
   ]) {
     const previous = previousById.get(item.id)
     const firstSeenAt = resolveFirstSeenAt(previous, item, db)
+    const compactItem = compactSyncedItem(item)
 
     merged.set(item.id, {
-      ...previous,
-      ...item,
+      ...compactItem,
       firstSeenAt,
       lastSeenAt: syncFinishedAt,
-      isNew: isDateNearToday(item.applyStart, 2, new Date(syncFinishedAt))
+      isNew: isDateNearToday(compactItem.applyStart, 2, new Date(syncFinishedAt))
     })
   }
 

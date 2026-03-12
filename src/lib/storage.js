@@ -10,6 +10,7 @@ const PUBLIC_CONFIG_FILE = path.join(process.cwd(), 'public', 'config.js')
 const REMOTE_ANNOUNCEMENTS_TABLE = 'support_announcements'
 const REMOTE_STATE_TABLE = 'support_state'
 const REMOTE_META_KEY = 'support_database_meta'
+const MAX_LOCAL_DB_FILE_BYTES = Number(process.env.MAX_LOCAL_DB_FILE_BYTES || 48 * 1024 * 1024)
 let dbCache = null
 let remoteConfigCache = null
 
@@ -32,6 +33,30 @@ function ensureStorage() {
 function writeDatabaseFile(db) {
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf8')
   dbCache = db
+}
+
+function createEmptyDatabase() {
+  return {
+    items: [],
+    meta: {
+      lastSyncAt: null,
+      lastSyncSummary: null,
+      createdAt: formatDateTime()
+    }
+  }
+}
+
+function getLocalDatabaseFileSize() {
+  try {
+    return fs.statSync(DB_FILE).size
+  } catch (error) {
+    return 0
+  }
+}
+
+function shouldSkipLargeLocalDatabase() {
+  const { enabled } = getRemoteConfig()
+  return enabled && getLocalDatabaseFileSize() > MAX_LOCAL_DB_FILE_BYTES
 }
 
 function normalizeTags(value) {
@@ -287,8 +312,13 @@ async function loadRemoteItems() {
 
 async function initializeStorage() {
   ensureStorage()
-  const local = loadDatabase()
   const { enabled } = getRemoteConfig()
+  const skipLargeLocal = shouldSkipLargeLocalDatabase()
+  const local = skipLargeLocal ? createEmptyDatabase() : loadDatabase()
+
+  if (skipLargeLocal) {
+    console.warn(`Skipping oversized local supports.json (${getLocalDatabaseFileSize()} bytes) and preferring remote restore.`)
+  }
 
   if (!enabled || local.items.length > 0) {
     return local
@@ -321,6 +351,11 @@ function loadDatabase() {
   ensureStorage()
 
   if (dbCache) {
+    return dbCache
+  }
+
+  if (shouldSkipLargeLocalDatabase()) {
+    dbCache = createEmptyDatabase()
     return dbCache
   }
 
