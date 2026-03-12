@@ -833,6 +833,9 @@ async function startSync() {
     }
 
     if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('trigger-sync Edge Function이 아직 배포되지 않았습니다.')
+      }
       throw new Error(payload.error || `동기화 호출 실패 (${response.status})`)
     }
 
