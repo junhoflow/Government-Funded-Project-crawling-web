@@ -17,7 +17,7 @@
           <p class="hero-copy">
             K-Startup, 기업마당, 판판대로, 소담상회, 인천 비즈오케이, THE VC 공고를 통합 수집하고 웹 필터와 엑셀 내보내기로 바로 선별할 수 있습니다.
           </p>
-          <p class="hero-meta">지원 체크 저장: <strong id="storage-mode">이 기기 저장</strong></p>
+          <p class="hero-meta">지원 상태 저장: <strong id="storage-mode">이 기기 저장</strong></p>
         </div>
         <div class="hero-actions">
           <button id="sync-button" class="primary-button">지금 동기화</button>
@@ -136,10 +136,14 @@
             <button id="next-page" class="pager-button">다음</button>
           </div>
         </div>
+        <div class="list-tabs">
+          <button id="tab-open" class="tab-button is-active" type="button">지원사업 목록 <span id="tab-open-count"></span></button>
+          <button id="tab-pending" class="tab-button" type="button">지원예정 <span id="tab-pending-count"></span></button>
+          <button id="tab-completed" class="tab-button" type="button">지원완료 <span id="tab-completed-count"></span></button>
+        </div>
         <div class="table-wrap">
           <table>
             <colgroup>
-              <col class="applied-col">
               <col class="source-col">
               <col class="title-col">
               <col class="category-col">
@@ -148,10 +152,10 @@
               <col class="executing-col">
               <col class="period-col">
               <col class="status-col">
+              <col class="action-col">
             </colgroup>
             <thead>
               <tr class="column-row">
-                <th>지원</th>
                 <th>출처</th>
                 <th>공고명</th>
                 <th>분야</th>
@@ -160,6 +164,7 @@
                 <th>수행기관</th>
                 <th>신청기간</th>
                 <th>상태</th>
+                <th>처리</th>
               </tr>
             </thead>
             <tbody id="results-body"></tbody>
@@ -171,7 +176,6 @@
 
     <template id="row-template">
       <tr>
-        <td class="applied-cell"></td>
         <td class="source-cell"></td>
         <td class="title-cell"></td>
         <td class="category-cell"></td>
@@ -180,6 +184,7 @@
         <td class="executing-cell"></td>
         <td class="period-cell"></td>
         <td class="status-cell"></td>
+        <td class="action-cell"></td>
       </tr>
     </template>
 
@@ -209,6 +214,7 @@
             <dd class="mobile-executing"></dd>
           </div>
         </dl>
+        <div class="mobile-card-action"></div>
       </article>
     </template>
 

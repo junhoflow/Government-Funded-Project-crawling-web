@@ -6,7 +6,9 @@ const state = {
   lastKnownSyncRunning: false,
   lastSyncAt: '',
   currentItems: [],
-  appliedMap: {},
+  workflowMap: {},
+  activeTab: 'open',
+  totalAnnouncements: 0,
   togglingIds: new Set()
 }
 
@@ -212,9 +214,20 @@ function populateCategoryChips(values) {
 }
 
 function updateExportLink() {
+  const link = byId('export-link')
+
+  if (state.activeTab !== 'open') {
+    link.href = '#'
+    link.classList.add('is-disabled')
+    link.title = '지원사업 목록 탭에서만 엑셀 다운로드가 가능합니다.'
+    return
+  }
+
   const params = buildQuery()
   params.delete('page')
-  byId('export-link').href = apiUrl(`/api/announcements/export.xlsx?${params.toString()}`)
+  link.href = apiUrl(`/api/announcements/export.xlsx?${params.toString()}`)
+  link.classList.remove('is-disabled')
+  link.title = ''
 }
 
 function updateFilterPanelState() {
@@ -224,22 +237,130 @@ function updateFilterPanelState() {
   button.textContent = state.filtersOpen ? '필터 닫기' : '필터 열기'
 }
 
-function isApplied(itemId) {
-  return Boolean(state.appliedMap[itemId])
+function normalizeText(value) {
+  return String(value || '').trim().toLowerCase()
 }
 
-function createAppliedButton(item) {
+function getWorkflowRecord(itemId) {
+  return state.workflowMap[itemId] || null
+}
+
+function getWorkflowStatus(itemId) {
+  const record = getWorkflowRecord(itemId)
+  return record ? record.workflowStatus : 'open'
+}
+
+function getSelectedCategories() {
+  return Array.from(byId('category').querySelectorAll('input[type="checkbox"]:checked')).map((checkbox) => checkbox.value)
+}
+
+function matchesCurrentFilters(item) {
+  const keyword = normalizeText(byId('keyword').value)
+  const source = normalizeText(byId('source').value)
+  const title = normalizeText(byId('title').value)
+  const categories = getSelectedCategories().map(normalizeText)
+  const allCategories = Array.from(byId('category').querySelectorAll('input[type="checkbox"]')).map((checkbox) =>
+    normalizeText(checkbox.value)
+  )
+  const region = normalizeText(byId('region').value)
+  const applyTarget = normalizeText(byId('applyTarget').value)
+  const managingOrg = normalizeText(byId('managingOrg').value)
+  const executingOrg = normalizeText(byId('executingOrg').value)
+  const period = normalizeText(byId('period').value)
+  const status = normalizeText(byId('status').value)
+  const statusInfo = getStatusInfo(item)
+
+  if (source && normalizeText(item.source) !== source) {
+    return false
+  }
+
+  if (title && !normalizeText(item.title).includes(title)) {
+    return false
+  }
+
+  if (categories.length > 0 && categories.length < allCategories.length && !categories.includes(normalizeText(item.category))) {
+    return false
+  }
+
+  if (region && normalizeText(item.region) !== region) {
+    return false
+  }
+
+  if (applyTarget && !normalizeText(item.applyTarget).includes(applyTarget) && !normalizeText(item.summary).includes(applyTarget)) {
+    return false
+  }
+
+  if (managingOrg && !normalizeText(item.managingOrg).includes(managingOrg)) {
+    return false
+  }
+
+  if (executingOrg && !normalizeText(item.executingOrg).includes(executingOrg)) {
+    return false
+  }
+
+  if (period && !normalizeText(item.applyPeriodText).includes(period)) {
+    return false
+  }
+
+  if (status && statusInfo.key !== status) {
+    return false
+  }
+
+  if (keyword) {
+    const searchText = normalizeText(
+      [item.title, item.source, item.category, item.region, item.managingOrg, item.executingOrg, item.summary, item.searchText].join(
+        ' '
+      )
+    )
+
+    if (!searchText.includes(keyword)) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function getTabAction(item) {
+  if (state.activeTab === 'open') {
+    return {
+      key: 'pending',
+      label: '지원예정',
+      confirmMessage: '이 공고를 지원예정 탭으로 이동할까요?'
+    }
+  }
+
+  if (state.activeTab === 'pending') {
+    return {
+      key: 'completed',
+      label: '지원완료',
+      confirmMessage: '이 공고를 지원완료 탭으로 이동할까요?'
+    }
+  }
+
+  return null
+}
+
+function createActionButton(item) {
+  const action = getTabAction(item)
+
+  if (!action) {
+    const span = document.createElement('span')
+    span.className = 'action-complete'
+    span.textContent = '완료'
+    return span
+  }
+
   const button = document.createElement('button')
-  const applied = isApplied(item.id)
   const isBusy = state.togglingIds.has(item.id)
 
   button.type = 'button'
-  button.className = `applied-toggle${applied ? ' is-applied' : ''}`
-  button.dataset.appliedToggle = 'true'
+  button.className = `workflow-action workflow-${action.key}`
+  button.dataset.workflowAction = action.key
   button.dataset.announcementId = item.id
   button.disabled = isBusy
-  button.textContent = applied ? '지원함' : '미지원'
-  button.title = applied ? '지원 완료로 표시됨' : '지원 전'
+  button.textContent = action.label
+  button.title = action.label
   return button
 }
 
@@ -303,7 +424,6 @@ function renderRows(items) {
     const managingText = item.managingOrg || '-'
     const executingText = item.executingOrg || '-'
     const periodText = item.applyPeriodText || '-'
-    const appliedCell = fragment.querySelector('.applied-cell')
     const sourceCell = fragment.querySelector('.source-cell')
     const titleCell = fragment.querySelector('.title-cell')
     const categoryCell = fragment.querySelector('.category-cell')
@@ -312,9 +432,8 @@ function renderRows(items) {
     const executingCell = fragment.querySelector('.executing-cell')
     const periodCell = fragment.querySelector('.period-cell')
     const statusCell = fragment.querySelector('.status-cell')
+    const actionCell = fragment.querySelector('.action-cell')
 
-    appliedCell.appendChild(createAppliedButton(item))
-    appliedCell.title = isApplied(item.id) ? '지원함' : '미지원'
     sourceCell.textContent = sourceText
     sourceCell.title = sourceText
     titleCell.appendChild(createTitleLink(item, 'title-link'))
@@ -331,19 +450,21 @@ function renderRows(items) {
     periodCell.title = periodText
     statusCell.appendChild(createStatusBadge(statusInfo))
     statusCell.title = statusInfo.text
+    actionCell.appendChild(createActionButton(item))
 
     body.appendChild(fragment)
 
     mobileFragment.querySelector('.mobile-card-badges').innerHTML =
       `<span class="mobile-pill">${escapeHtml(sourceText)}</span>` +
       `<span class="mobile-pill">${escapeHtml(categoryText)}</span>`
-    mobileFragment.querySelector('.mobile-card-applied').appendChild(createAppliedButton(item))
+    mobileFragment.querySelector('.mobile-card-applied').appendChild(createStatusBadge(statusInfo))
     mobileFragment.querySelector('.mobile-card-title').replaceWith(createTitleLink(item, 'mobile-card-title'))
-    mobileFragment.querySelector('.mobile-card-meta').appendChild(createStatusBadge(statusInfo))
+    mobileFragment.querySelector('.mobile-card-meta').textContent = `${sourceText} · ${categoryText}`
     mobileFragment.querySelector('.mobile-region').textContent = regionText
     mobileFragment.querySelector('.mobile-period').textContent = periodText
     mobileFragment.querySelector('.mobile-managing').textContent = managingText
     mobileFragment.querySelector('.mobile-executing').textContent = executingText
+    mobileFragment.querySelector('.mobile-card-action').appendChild(createActionButton(item))
 
     mobileBody.appendChild(mobileFragment)
   })
@@ -352,6 +473,7 @@ function renderRows(items) {
 async function loadMeta() {
   const meta = await fetchJson('/api/meta')
 
+  state.totalAnnouncements = meta.total
   byId('total-count').textContent = meta.total.toLocaleString('ko-KR')
   state.lastSyncAt = meta.lastSyncAt || state.lastSyncAt
   byId('last-sync').textContent = formatDateTime(state.lastSyncAt)
@@ -361,17 +483,73 @@ async function loadMeta() {
   populateSelect('region', meta.facets.regions, '전체 지역')
 }
 
+function paginateClient(items, page, pageSize = 50) {
+  const totalPages = Math.max(Math.ceil(items.length / pageSize), 1)
+  const safePage = Math.min(Math.max(page, 1), totalPages)
+  const start = (safePage - 1) * pageSize
+
+  return {
+    page: safePage,
+    totalPages,
+    total: items.length,
+    items: items.slice(start, start + pageSize)
+  }
+}
+
+function getWorkflowItemsByStatus(workflowStatus) {
+  return Object.values(state.workflowMap)
+    .filter((item) => item.workflowStatus === workflowStatus)
+    .filter(matchesCurrentFilters)
+}
+
+function updateTabCounts(openCount) {
+  const defaultOpenCount = Math.max(state.totalAnnouncements - Object.keys(state.workflowMap).length, 0)
+  byId('tab-open-count').textContent = `(${(openCount === undefined ? defaultOpenCount : openCount).toLocaleString('ko-KR')})`
+  byId('tab-pending-count').textContent = `(${getWorkflowItemsByStatus('pending').length.toLocaleString('ko-KR')})`
+  byId('tab-completed-count').textContent = `(${getWorkflowItemsByStatus('completed').length.toLocaleString('ko-KR')})`
+}
+
+function updateTabButtons() {
+  byId('tab-open').classList.toggle('is-active', state.activeTab === 'open')
+  byId('tab-pending').classList.toggle('is-active', state.activeTab === 'pending')
+  byId('tab-completed').classList.toggle('is-active', state.activeTab === 'completed')
+}
+
 async function loadAnnouncements() {
   updateExportLink()
-  const data = await fetchJson(`/api/announcements?${buildQuery().toString()}`)
+  updateTabButtons()
 
-  state.totalPages = data.totalPages
-  state.currentItems = data.items
-  renderRows(data.items)
+  if (state.activeTab === 'open') {
+    const data = await fetchJson(`/api/announcements?${buildQuery().toString()}`)
+    const hiddenIds = new Set(Object.keys(state.workflowMap))
+    const visibleItems = data.items.filter((item) => !hiddenIds.has(item.id))
 
-  byId('filtered-count').textContent = data.total.toLocaleString('ko-KR')
-  byId('page-indicator').textContent = `${data.page} / ${data.totalPages}`
-  byId('result-summary').textContent = `총 ${data.total.toLocaleString('ko-KR')}건 중 ${data.items.length.toLocaleString('ko-KR')}건 표시`
+    state.totalPages = data.totalPages
+    state.currentItems = visibleItems
+    renderRows(visibleItems)
+    updateTabCounts(data.total - hiddenIds.size > 0 ? Math.max(data.total - hiddenIds.size, 0) : visibleItems.length)
+
+    byId('filtered-count').textContent = visibleItems.length.toLocaleString('ko-KR')
+    byId('page-indicator').textContent = `${data.page} / ${data.totalPages}`
+    byId('result-summary').textContent =
+      `서버 검색 ${data.total.toLocaleString('ko-KR')}건 중 현재 페이지 ${visibleItems.length.toLocaleString('ko-KR')}건 표시`
+    return
+  }
+
+  const workflowStatus = state.activeTab === 'pending' ? 'pending' : 'completed'
+  const workflowItems = getWorkflowItemsByStatus(workflowStatus)
+  const paginated = paginateClient(workflowItems, state.page, 50)
+
+  state.page = paginated.page
+  state.totalPages = paginated.totalPages
+  state.currentItems = paginated.items
+  renderRows(paginated.items)
+  updateTabCounts()
+
+  byId('filtered-count').textContent = paginated.total.toLocaleString('ko-KR')
+  byId('page-indicator').textContent = `${paginated.page} / ${paginated.totalPages}`
+  byId('result-summary').textContent =
+    `${state.activeTab === 'pending' ? '지원예정' : '지원완료'} ${paginated.total.toLocaleString('ko-KR')}건 중 ${paginated.items.length.toLocaleString('ko-KR')}건 표시`
 }
 
 async function loadSyncStatus() {
@@ -422,56 +600,65 @@ async function applyFilters() {
 
 async function loadAppliedState() {
   try {
-    state.appliedMap = await window.AppliedStore.load()
+    state.workflowMap = await window.AppliedStore.load()
   } catch (error) {
     console.error(error)
-    state.appliedMap = {}
+    state.workflowMap = {}
   }
 
   byId('storage-mode').textContent = window.AppliedStore.getModeLabel()
 }
 
-function updateAppliedButtons(itemId) {
-  document.querySelectorAll('[data-applied-toggle]').forEach((button) => {
+function updateWorkflowButtons(itemId) {
+  document.querySelectorAll('[data-workflow-action]').forEach((button) => {
     if (button.dataset.announcementId !== itemId) {
       return
     }
 
-    const applied = isApplied(itemId)
+    const action = getTabAction({ id: itemId })
     const isBusy = state.togglingIds.has(itemId)
 
-    button.classList.toggle('is-applied', applied)
+    if (!action) {
+      return
+    }
+
     button.disabled = isBusy
-    button.textContent = applied ? '지원함' : '미지원'
-    button.title = applied ? '지원 완료로 표시됨' : '미지원'
+    button.textContent = action.label
+    button.title = action.label
   })
 }
 
-async function toggleApplied(itemId) {
-  const item = state.currentItems.find((entry) => entry.id === itemId)
+async function moveWorkflow(itemId, workflowStatus) {
+  const item = state.currentItems.find((entry) => entry.id === itemId) || getWorkflowRecord(itemId)
 
   if (!item || state.togglingIds.has(itemId)) {
     return
   }
 
-  const nextValue = !isApplied(itemId)
+  const action = workflowStatus === 'pending'
+    ? { label: '지원예정', confirmMessage: '이 공고를 지원예정 탭으로 이동할까요?' }
+    : { label: '지원완료', confirmMessage: '이 공고를 지원완료 탭으로 이동할까요?' }
+
+  if (!window.confirm(action.confirmMessage)) {
+    return
+  }
+
   state.togglingIds.add(itemId)
-  updateAppliedButtons(itemId)
+  updateWorkflowButtons(itemId)
 
   try {
-    await window.AppliedStore.setApplied(item, nextValue)
-
-    if (nextValue) {
-      state.appliedMap[itemId] = true
-    } else {
-      delete state.appliedMap[itemId]
+    await window.AppliedStore.setWorkflow(item, workflowStatus)
+    state.workflowMap[itemId] = {
+      ...item,
+      workflowStatus
     }
+    await loadAnnouncements()
   } catch (error) {
     console.error(error)
-    alert('지원 체크 저장에 실패했습니다.')
+    alert('지원 상태 저장에 실패했습니다.')
   } finally {
     state.togglingIds.delete(itemId)
-    updateAppliedButtons(itemId)
+    updateWorkflowButtons(itemId)
   }
 }
 
@@ -520,6 +707,12 @@ async function refreshAll() {
   }
 }
 
+async function setActiveTab(tab) {
+  state.activeTab = tab
+  state.page = 1
+  await loadAnnouncements()
+}
+
 byId('prev-page').addEventListener('click', async () => {
   if (state.page <= 1) {
     return
@@ -548,14 +741,23 @@ byId('toggle-filters').addEventListener('click', () => {
   state.filtersOpen = !state.filtersOpen
   updateFilterPanelState()
 })
+byId('tab-open').addEventListener('click', async () => {
+  await setActiveTab('open')
+})
+byId('tab-pending').addEventListener('click', async () => {
+  await setActiveTab('pending')
+})
+byId('tab-completed').addEventListener('click', async () => {
+  await setActiveTab('completed')
+})
 document.addEventListener('click', async (event) => {
-  const button = event.target.closest('[data-applied-toggle]')
+  const button = event.target.closest('[data-workflow-action]')
 
   if (!button) {
     return
   }
 
-  await toggleApplied(button.dataset.announcementId)
+  await moveWorkflow(button.dataset.announcementId, button.dataset.workflowAction)
 })
 
 setInterval(async () => {
