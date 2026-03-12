@@ -126,7 +126,7 @@ async function syncSupportPrograms(options = {}) {
     finishedAt: syncFinishedAt
   }
 
-  saveDatabase({
+  await saveDatabase({
     items,
     meta: {
       ...db.meta,

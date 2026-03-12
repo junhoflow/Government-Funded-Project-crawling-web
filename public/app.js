@@ -515,6 +515,39 @@ function updateTabButtons() {
   byId('tab-completed').classList.toggle('is-active', state.activeTab === 'completed')
 }
 
+function renderSyncStages(progress) {
+  const container = byId('sync-stage-list')
+
+  if (!container) {
+    return
+  }
+
+  const stages = progress && progress.stages ? Object.values(progress.stages) : []
+  container.innerHTML = ''
+
+  if (!stages.length) {
+    const empty = document.createElement('li')
+    empty.className = 'sync-stage-empty'
+    empty.textContent = '동기화 대기 중'
+    container.appendChild(empty)
+    return
+  }
+
+  stages.forEach((stage) => {
+    const item = document.createElement('li')
+    const total = Number(stage.total || 0)
+    const current = Number(stage.current || 0)
+    const percent = total > 0 ? Math.min(Math.round((current / total) * 100), 100) : stage.done ? 100 : 0
+
+    item.className = 'sync-stage-item'
+    item.innerHTML =
+      `<span class="sync-stage-label">${escapeHtml(stage.label || stage.stage || '-')}</span>` +
+      `<span class="sync-stage-meta">${escapeHtml(stage.phase || '')} ${percent}%</span>`
+    item.title = stage.message || stage.label || stage.stage || ''
+    container.appendChild(item)
+  })
+}
+
 async function loadAnnouncements() {
   updateExportLink()
   updateTabButtons()
@@ -561,6 +594,7 @@ async function loadSyncStatus() {
   byId('sync-button').disabled = status.isRunning
   byId('sync-progress-fill').style.width = `${(status.progress && status.progress.percent) || 0}%`
   byId('sync-progress-text').textContent = `${(status.progress && status.progress.percent) || 0}%`
+  renderSyncStages(status.progress)
 
   if (status.summary && status.summary.finishedAt) {
     state.lastSyncAt = status.summary.finishedAt

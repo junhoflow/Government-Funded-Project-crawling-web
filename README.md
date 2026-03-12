@@ -10,7 +10,7 @@
 - `THE VC` 지원사업 공개 목록
 
 웹에서 필터링하고, 현재 조건 그대로 엑셀(`.xlsx`)로 내려받을 수 있습니다.
-이제 공고별 `지원함` 체크도 가능하며, 기본은 이 기기 저장이고 `Supabase`를 연결하면 외부 모바일에서도 같은 체크 상태를 공유할 수 있습니다.
+이제 공고별 `지원함` 체크도 가능하며, `Supabase`를 연결하면 외부 모바일에서도 같은 체크 상태를 공유할 수 있습니다. 메인 지원사업 목록도 같은 Supabase에 백업되어 배포 서버가 재시작되어도 다시 복원됩니다.
 
 ## 실행 방법
 
@@ -92,13 +92,16 @@ npm run thevc:setup
 
 ## 데이터 저장 위치
 
-- 통합 데이터: `data/supports.json`
+- 통합 데이터: `data/supports.json` (`Supabase` 연결 시 서버 재시작 대비 백업/복원)
 - 캐시: `data/cache/`
 - THE VC 세션: `data/thevc-storage.json`
 
-## 지원 체크 DB 연결
+## Supabase 연결
 
-기본값은 브라우저 `localStorage` 저장입니다. 같은 체크 상태를 모바일/외부에서도 같이 보려면 `Supabase`를 연결하면 됩니다.
+`Supabase`를 연결하면 아래 두 가지가 같이 저장됩니다.
+
+- `지원예정`, `지원완료` 워크플로 데이터
+- 메인 지원사업 목록과 마지막 동기화 메타데이터
 
 1. Supabase에서 SQL Editor를 열고 [supabase/schema.sql](/Users/kimjunho/vscode/automatic/supabase/schema.sql)을 실행합니다.
 2. [public/config.js](/Users/kimjunho/vscode/automatic/public/config.js)을 열어 값을 채웁니다.
@@ -117,6 +120,10 @@ window.APP_CONFIG = {
 - `supabaseUrl`: Supabase 프로젝트 URL
 - `supabaseAnonKey`: Supabase anon public key
 - `profileKey`: 체크 상태를 묶는 사용자 키. 개인용이면 임의 문자열 하나로 고정해도 됩니다.
+
+중요:
+- 메인 목록 DB 테이블이 추가되었으니 [supabase/schema.sql](/Users/kimjunho/vscode/automatic/supabase/schema.sql)을 최신 버전으로 다시 실행해야 합니다.
+- 서버는 `public/config.js`의 `supabaseUrl`, `supabaseAnonKey`를 읽어서 같은 DB를 사용합니다.
 
 ## GitHub Pages 배포
 

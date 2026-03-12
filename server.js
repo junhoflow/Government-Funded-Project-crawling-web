@@ -3,7 +3,7 @@ const compression = require('compression')
 const path = require('path')
 const XLSX = require('xlsx')
 const { filterAnnouncements, buildFacets, dedupeAnnouncements } = require('./src/lib/filters')
-const { ensureStorage, loadDatabase } = require('./src/lib/storage')
+const { ensureStorage, initializeStorage, loadDatabase } = require('./src/lib/storage')
 const { syncSupportPrograms } = require('./src/services/sync')
 const { getAnnouncementStatus, isDateNearToday } = require('./src/lib/utils')
 
@@ -341,32 +341,37 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'))
 })
 
-if (IS_SYNC_ONLY) {
-  startSync({
-    includeBizinfoClosed: process.argv.includes('--include-bizinfo-closed')
-      ? true
-      : process.argv.includes('--exclude-bizinfo-closed')
-        ? false
-        : undefined
-  }).then((started) => {
-    if (!started) {
-      process.exit(1)
-    }
+async function boot() {
+  await initializeStorage()
 
-    const timer = setInterval(() => {
-      if (!syncState.isRunning) {
-        clearInterval(timer)
-
-        if (syncState.summary && !syncState.summary.error) {
-          console.log(JSON.stringify(syncState.summary, null, 2))
-          process.exit(0)
-        }
-
+  if (IS_SYNC_ONLY) {
+    startSync({
+      includeBizinfoClosed: process.argv.includes('--include-bizinfo-closed')
+        ? true
+        : process.argv.includes('--exclude-bizinfo-closed')
+          ? false
+          : undefined
+    }).then((started) => {
+      if (!started) {
         process.exit(1)
       }
-    }, 1000)
-  })
-} else {
+
+      const timer = setInterval(() => {
+        if (!syncState.isRunning) {
+          clearInterval(timer)
+
+          if (syncState.summary && !syncState.summary.error) {
+            console.log(JSON.stringify(syncState.summary, null, 2))
+            process.exit(0)
+          }
+
+          process.exit(1)
+        }
+      }, 1000)
+    })
+    return
+  }
+
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`)
 
@@ -376,3 +381,8 @@ if (IS_SYNC_ONLY) {
     }
   })
 }
+
+boot().catch((error) => {
+  console.error(error)
+  process.exit(1)
+})
