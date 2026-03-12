@@ -61,9 +61,9 @@ const workflowUrl = String(appConfig.syncWorkflowUrl || REPO_WORKFLOW_URL)
 const syncFunctionUrl = String(appConfig.syncFunctionUrl || (supabaseUrl ? `${supabaseUrl}/functions/v1/trigger-sync` : ''))
 const supabaseRestBase = supabaseUrl ? `${supabaseUrl}/rest/v1` : ''
 const accessGateEnabled = Boolean(appConfig.accessGateEnabled)
-const accessPasswordHash = String(appConfig.accessPasswordHash || '')
+const accessPassword = String(appConfig.accessPassword || '')
 const accessSessionKey = String(appConfig.accessSessionKey || 'government-funded-project.access.v1')
-let accessGranted = !accessGateEnabled || !accessPasswordHash
+let accessGranted = !accessGateEnabled || !accessPassword
 
 const filterIds = [
   'keyword',
@@ -83,14 +83,6 @@ function byId(id) {
   return document.getElementById(id)
 }
 
-async function sha256Hex(value) {
-  const source = new TextEncoder().encode(String(value || ''))
-  const buffer = await window.crypto.subtle.digest('SHA-256', source)
-  return Array.from(new Uint8Array(buffer))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')
-}
-
 function denyAccess() {
   document.body.innerHTML =
     '<main style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#f8f4ec;color:#1c1b18;font-family:IBM Plex Sans KR, Noto Sans KR, sans-serif;">' +
@@ -102,7 +94,7 @@ function denyAccess() {
 }
 
 async function ensureAccess() {
-  if (!accessGateEnabled || !accessPasswordHash) {
+  if (!accessGateEnabled || !accessPassword) {
     accessGranted = true
     return true
   }
@@ -126,9 +118,7 @@ async function ensureAccess() {
       return false
     }
 
-    const enteredHash = await sha256Hex(entered)
-
-    if (enteredHash === accessPasswordHash) {
+    if (entered === accessPassword) {
       window.sessionStorage.setItem(accessSessionKey, 'granted')
       accessGranted = true
 

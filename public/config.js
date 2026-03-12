@@ -6,7 +6,7 @@ window.APP_CONFIG = {
   syncFunctionUrl: "https://fqcqgbuhqmdvpdjowztp.supabase.co/functions/v1/trigger-sync",
   syncWorkflowUrl: "https://github.com/junhoflow/Government-Funded-Project-crawling-web/actions/workflows/daily-sync.yml",
   accessGateEnabled: true,
-  accessPasswordHash: "0f61eca2df5e80f7519cef4720f2fbcfc7bd208d265aa0590767eb3294093533",
+  accessPassword: "1662",
   accessSessionKey: "government-funded-project.access.v1",
   profileKey: "default",
 };
