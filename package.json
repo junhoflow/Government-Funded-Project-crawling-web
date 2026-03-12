@@ -13,6 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "cheerio": "^1.0.0-rc.12",
+    "compression": "^1.7.5",
     "express": "^4.22.1",
     "node-fetch": "^2.7.0",
     "playwright": "^1.44.1",

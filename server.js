@@ -1,4 +1,5 @@
 const express = require('express')
+const compression = require('compression')
 const path = require('path')
 const XLSX = require('xlsx')
 const { filterAnnouncements, buildFacets, dedupeAnnouncements } = require('./src/lib/filters')
@@ -12,6 +13,14 @@ const app = express()
 const PORT = process.env.PORT || 3000
 const IS_SYNC_ONLY = process.argv.includes('--sync-only')
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*'
+const IS_RENDER =
+  process.env.RENDER === 'true' ||
+  Boolean(process.env.RENDER_SERVICE_ID) ||
+  Boolean(process.env.ONRENDER_EXTERNAL_URL)
+const AUTO_SYNC_ON_EMPTY =
+  process.env.AUTO_SYNC_ON_EMPTY === undefined
+    ? !IS_RENDER
+    : process.env.AUTO_SYNC_ON_EMPTY === 'true'
 const syncState = {
   isRunning: false,
   startedAt: null,
@@ -32,6 +41,7 @@ let decoratedDbCache = null
 let decoratedDbCacheKey = ''
 
 app.use(express.json())
+app.use(compression())
 app.use((req, res, next) => {
   const allowedOrigins = CORS_ORIGIN.split(',')
     .map((value) => value.trim())
@@ -361,7 +371,7 @@ if (IS_SYNC_ONLY) {
     console.log(`Server running on http://localhost:${PORT}`)
 
     const db = getDatabase()
-    if (db.items.length === 0) {
+    if (AUTO_SYNC_ON_EMPTY && db.items.length === 0) {
       startSync({ includeBizinfoClosed: true })
     }
   })

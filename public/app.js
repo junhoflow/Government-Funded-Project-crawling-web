@@ -696,10 +696,12 @@ function resetFilters() {
 
 async function refreshAll() {
   try {
-    await loadAppliedState()
-    await loadMeta()
+    await Promise.all([
+      loadAppliedState(),
+      loadMeta(),
+      loadSyncStatus()
+    ])
     await loadAnnouncements()
-    await loadSyncStatus()
   } catch (error) {
     console.error(error)
     byId('result-summary').textContent = 'API 연결에 실패했습니다. config.js의 apiBaseUrl 설정을 확인하세요.'
