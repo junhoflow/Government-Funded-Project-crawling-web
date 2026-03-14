@@ -52,7 +52,9 @@ const state = {
   workflowMap: {},
   activeTab: 'open',
   totalAnnouncements: 0,
-  togglingIds: new Set()
+  togglingIds: new Set(),
+  filterDebounceTimer: null,
+  latestAnnouncementsRequestId: 0
 }
 
 const appConfig = window.APP_CONFIG || {}
@@ -250,6 +252,10 @@ function updateFilterPanelState() {
   const button = byId('toggle-filters')
   panel.classList.toggle('hidden', !state.filtersOpen)
   button.textContent = state.filtersOpen ? '필터 닫기' : '필터 열기'
+}
+
+function isStaleAnnouncementsRequest(requestId) {
+  return requestId !== state.latestAnnouncementsRequestId
 }
 
 function normalizeText(value) {
@@ -840,12 +846,16 @@ function getSyncStatusText(status) {
   return '대기 중'
 }
 
-async function loadOpenAnnouncements() {
+async function loadOpenAnnouncements(requestId) {
   const hiddenIds = new Set(Object.keys(state.workflowMap))
   const firstPage = await fetchOpenAnnouncementsPage(state.page, PAGE_SIZE * 2, true)
   const visibleItems = []
   let scannedItems = firstPage.items
   let extraPage = state.page + 1
+
+  if (isStaleAnnouncementsRequest(requestId)) {
+    return
+  }
 
   while (visibleItems.length < PAGE_SIZE && scannedItems.length > 0) {
     scannedItems.forEach((item) => {
@@ -864,8 +874,16 @@ async function loadOpenAnnouncements() {
       break
     }
 
+    if (isStaleAnnouncementsRequest(requestId)) {
+      return
+    }
+
     scannedItems = extraChunk.items
     extraPage += 1
+  }
+
+  if (isStaleAnnouncementsRequest(requestId)) {
+    return
   }
 
   state.totalPages = Math.max(Math.ceil(Math.max(firstPage.total - hiddenIds.size, 0) / PAGE_SIZE), 1)
@@ -880,17 +898,23 @@ async function loadOpenAnnouncements() {
 }
 
 async function loadAnnouncements() {
+  const requestId = ++state.latestAnnouncementsRequestId
+
   updateExportLink()
   updateTabButtons()
 
   if (state.activeTab === 'open') {
-    await loadOpenAnnouncements()
+    await loadOpenAnnouncements(requestId)
     return
   }
 
   const workflowStatus = state.activeTab === 'pending' ? 'pending' : 'completed'
-  const workflowItems = getWorkflowItemsByStatus(workflowStatus)
+  const workflowItems = getWorkflowItemsByStatus(workflowStatus).filter(matchesCurrentFilters)
   const paginated = paginateClient(workflowItems, state.page, PAGE_SIZE)
+
+  if (isStaleAnnouncementsRequest(requestId)) {
+    return
+  }
 
   state.page = paginated.page
   state.totalPages = paginated.totalPages
@@ -1042,8 +1066,34 @@ async function exportCurrentRows() {
 }
 
 async function applyFilters() {
+  if (state.filterDebounceTimer !== null) {
+    window.clearTimeout(state.filterDebounceTimer)
+    state.filterDebounceTimer = null
+  }
+
   state.page = 1
   await loadAnnouncements()
+}
+
+function requestFilterApply({ debounce = false } = {}) {
+  if (debounce) {
+    if (state.filterDebounceTimer !== null) {
+      window.clearTimeout(state.filterDebounceTimer)
+    }
+
+    state.filterDebounceTimer = window.setTimeout(() => {
+      state.filterDebounceTimer = null
+      void applyFilters().catch((error) => {
+        console.error(error)
+      })
+    }, 180)
+
+    return
+  }
+
+  void applyFilters().catch((error) => {
+    console.error(error)
+  })
 }
 
 async function loadAppliedState() {
@@ -1190,7 +1240,23 @@ byId('export-link').addEventListener('click', async (event) => {
   }
   await exportCurrentRows()
 })
-byId('apply-filters').addEventListener('click', applyFilters)
+;['sort', 'source', 'region', 'status'].forEach((id) => {
+  byId(id).addEventListener('change', () => {
+    requestFilterApply()
+  })
+})
+;['keyword', 'title', 'applyTarget', 'managingOrg', 'executingOrg', 'period'].forEach((id) => {
+  byId(id).addEventListener('input', () => {
+    requestFilterApply({ debounce: true })
+  })
+})
+byId('category').addEventListener('change', (event) => {
+  if (!event.target.matches('input[type="checkbox"]')) {
+    return
+  }
+
+  requestFilterApply()
+})
 byId('reset-filters').addEventListener('click', async () => {
   resetFilters()
   await applyFilters()
@@ -1201,6 +1267,7 @@ byId('toggle-filters').addEventListener('click', () => {
 })
 byId('clear-categories').addEventListener('click', () => {
   clearAllCategories()
+  requestFilterApply()
 })
 byId('tab-open').addEventListener('click', async () => {
   await setActiveTab('open')
