@@ -4,6 +4,7 @@ const META_STATE_KEY = 'support_database_meta'
 const SYNC_STATE_KEY = 'support_sync_status'
 const OPEN_VIEW_NAME = 'support_announcements_deduped'
 const PAGE_SIZE = 50
+const OPEN_SCAN_PAGE_SIZE = 200
 const OPEN_SELECT_COLUMNS = [
   'id',
   'source_key',
@@ -783,6 +784,32 @@ function getWorkflowItemsByStatus(workflowStatus) {
   return Object.values(state.workflowMap).filter((item) => item.workflowStatus === workflowStatus)
 }
 
+function updatePaginationControls(page, totalPages) {
+  ;['page-indicator', 'page-indicator-bottom'].forEach((id) => {
+    const indicator = byId(id)
+
+    if (indicator) {
+      indicator.textContent = `${page} / ${totalPages}`
+    }
+  })
+
+  ;['prev-page', 'prev-page-bottom'].forEach((id) => {
+    const button = byId(id)
+
+    if (button) {
+      button.disabled = page <= 1
+    }
+  })
+
+  ;['next-page', 'next-page-bottom'].forEach((id) => {
+    const button = byId(id)
+
+    if (button) {
+      button.disabled = page >= totalPages
+    }
+  })
+}
+
 function updateTabCounts(openCount) {
   const hiddenCount = Object.keys(state.workflowMap).length
   const defaultOpenCount = Math.max(state.totalAnnouncements - hiddenCount, 0)
@@ -848,53 +875,45 @@ function getSyncStatusText(status) {
 
 async function loadOpenAnnouncements(requestId) {
   const hiddenIds = new Set(Object.keys(state.workflowMap))
-  const firstPage = await fetchOpenAnnouncementsPage(state.page, PAGE_SIZE * 2, true)
   const visibleItems = []
-  let scannedItems = firstPage.items
-  let extraPage = state.page + 1
+  let fetchPage = 1
 
-  if (isStaleAnnouncementsRequest(requestId)) {
-    return
-  }
-
-  while (visibleItems.length < PAGE_SIZE && scannedItems.length > 0) {
-    scannedItems.forEach((item) => {
-      if (!hiddenIds.has(item.id) && visibleItems.length < PAGE_SIZE) {
-        visibleItems.push(item)
-      }
-    })
-
-    if (visibleItems.length >= PAGE_SIZE) {
-      break
-    }
-
-    const extraChunk = await fetchOpenAnnouncementsPage(extraPage, PAGE_SIZE * 2, false)
-
-    if (!extraChunk.items.length) {
-      break
-    }
+  while (true) {
+    const chunk = await fetchOpenAnnouncementsPage(fetchPage, OPEN_SCAN_PAGE_SIZE, false)
 
     if (isStaleAnnouncementsRequest(requestId)) {
       return
     }
 
-    scannedItems = extraChunk.items
-    extraPage += 1
+    chunk.items.forEach((item) => {
+      if (!hiddenIds.has(item.id)) {
+        visibleItems.push(item)
+      }
+    })
+
+    if (chunk.items.length < OPEN_SCAN_PAGE_SIZE) {
+      break
+    }
+
+    fetchPage += 1
   }
+
+  const paginated = paginateClient(visibleItems, state.page, PAGE_SIZE)
 
   if (isStaleAnnouncementsRequest(requestId)) {
     return
   }
 
-  state.totalPages = Math.max(Math.ceil(Math.max(firstPage.total - hiddenIds.size, 0) / PAGE_SIZE), 1)
-  state.currentItems = visibleItems
-  renderRows(visibleItems)
-  updateTabCounts(Math.max(firstPage.total - hiddenIds.size, 0))
+  state.page = paginated.page
+  state.totalPages = paginated.totalPages
+  state.currentItems = paginated.items
+  renderRows(paginated.items)
+  updateTabCounts(visibleItems.length)
 
-  byId('filtered-count').textContent = Math.max(firstPage.total - hiddenIds.size, 0).toLocaleString('ko-KR')
-  byId('page-indicator').textContent = `${state.page} / ${state.totalPages}`
+  byId('filtered-count').textContent = visibleItems.length.toLocaleString('ko-KR')
+  updatePaginationControls(paginated.page, paginated.totalPages)
   byId('result-summary').textContent =
-    `Supabase 검색 ${Math.max(firstPage.total - hiddenIds.size, 0).toLocaleString('ko-KR')}건 중 현재 페이지 ${visibleItems.length.toLocaleString('ko-KR')}건 표시`
+    `Supabase 검색 ${visibleItems.length.toLocaleString('ko-KR')}건 중 현재 페이지 ${paginated.items.length.toLocaleString('ko-KR')}건 표시`
 }
 
 async function loadAnnouncements() {
@@ -923,7 +942,7 @@ async function loadAnnouncements() {
   updateTabCounts()
 
   byId('filtered-count').textContent = paginated.total.toLocaleString('ko-KR')
-  byId('page-indicator').textContent = `${paginated.page} / ${paginated.totalPages}`
+  updatePaginationControls(paginated.page, paginated.totalPages)
   byId('result-summary').textContent =
     `${state.activeTab === 'pending' ? '지원예정' : '지원완료'} ${paginated.total.toLocaleString('ko-KR')}건 중 ${paginated.items.length.toLocaleString('ko-KR')}건 표시`
 }
@@ -1214,22 +1233,38 @@ async function setActiveTab(tab) {
   await loadAnnouncements()
 }
 
-byId('prev-page').addEventListener('click', async () => {
+async function goToPreviousPage() {
   if (state.page <= 1) {
     return
   }
 
   state.page -= 1
   await loadAnnouncements()
-})
+}
 
-byId('next-page').addEventListener('click', async () => {
+async function goToNextPage() {
   if (state.page >= state.totalPages) {
     return
   }
 
   state.page += 1
   await loadAnnouncements()
+}
+
+;['prev-page', 'prev-page-bottom'].forEach((id) => {
+  const button = byId(id)
+
+  if (button) {
+    button.addEventListener('click', goToPreviousPage)
+  }
+})
+
+;['next-page', 'next-page-bottom'].forEach((id) => {
+  const button = byId(id)
+
+  if (button) {
+    button.addEventListener('click', goToNextPage)
+  }
 })
 
 byId('sync-button').addEventListener('click', startSync)

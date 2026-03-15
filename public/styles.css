@@ -484,6 +484,12 @@ select {
   align-items: center;
 }
 
+.table-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
 .mobile-results {
   display: none;
 }
@@ -891,5 +897,9 @@ tbody tr.urgent-row:hover {
   .table-header {
     align-items: start;
     flex-direction: column;
+  }
+
+  .table-footer {
+    justify-content: stretch;
   }
 }
