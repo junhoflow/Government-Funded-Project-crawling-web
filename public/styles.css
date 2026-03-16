@@ -654,7 +654,7 @@ tbody tr.new-row:hover {
 }
 
 .action-col {
-  width: 10%;
+  width: 14%;
 }
 
 .source-col {
@@ -680,11 +680,14 @@ tbody tr.new-row:hover {
 }
 
 .status-col {
-  width: 6%;
+  width: 10%;
 }
 
 .action-cell {
-  width: 10%;
+  width: 14%;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .source-cell {
@@ -712,16 +715,19 @@ tbody tr.new-row:hover {
 }
 
 .status-cell {
-  width: 6%;
+  width: 10%;
   display: flex;
   gap: 4px;
   align-items: center;
   flex-wrap: wrap;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .workflow-actions {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 3px;
   width: 100%;
 }
@@ -731,11 +737,11 @@ tbody tr.new-row:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 1 1 calc(50% - 3px);
+  min-width: 44px;
   min-height: 22px;
   border-radius: 999px;
-  padding: 2px 3px;
+  padding: 3px 6px;
   font: inherit;
   font-size: 0.56rem;
   line-height: 1.1;
@@ -784,6 +790,11 @@ tbody tr.new-row:hover {
 .workflow-open {
   background: rgba(28, 27, 24, 0.06);
   color: var(--ink);
+}
+
+.workflow-delete {
+  background: rgba(178, 74, 44, 0.1);
+  color: #8c3723;
 }
 
 .workflow-action:disabled {

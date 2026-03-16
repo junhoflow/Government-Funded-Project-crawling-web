@@ -285,6 +285,15 @@ function getWorkflowRecord(itemId) {
   return state.workflowMap[itemId] || null
 }
 
+function canDeleteAnnouncement(item) {
+  return Boolean(
+    item &&
+      (item.sourceKey === MANUAL_SOURCE_KEY ||
+        item.source === '직접등록' ||
+        String(item.id || '').startsWith(`${MANUAL_SOURCE_KEY}-`))
+  )
+}
+
 function getCompletionResultInfo(item) {
   const key = item && item.completionResult ? item.completionResult : ''
 
@@ -588,6 +597,19 @@ function createActionControls(item) {
     wrapper.appendChild(button)
   })
 
+  if (canDeleteAnnouncement(item)) {
+    const button = document.createElement('button')
+
+    button.type = 'button'
+    button.className = 'workflow-action workflow-delete'
+    button.dataset.deleteAnnouncement = 'true'
+    button.dataset.announcementId = item.id
+    button.disabled = isBusy
+    button.textContent = '삭제'
+    button.title = '삭제'
+    wrapper.appendChild(button)
+  }
+
   return wrapper
 }
 
@@ -885,6 +907,39 @@ async function updateMetaAfterManualInsert(item) {
       sources: uniqueSortedValues([...(currentFacets.sources || []), item.source]),
       categories: uniqueSortedValues([...(currentFacets.categories || []), item.category]),
       regions: uniqueSortedValues([...(currentFacets.regions || []), item.region])
+    }
+  })
+}
+
+async function rebuildMetaStateFromAnnouncements() {
+  const rows = []
+  let page = 1
+
+  while (true) {
+    const result = await fetchSupabase(
+      `support_announcements?select=source,category,region&status_key=neq.closed&order=id.asc&limit=1000&offset=${(page - 1) * 1000}`
+    )
+    const batch = Array.isArray(result.data) ? result.data : []
+
+    rows.push(...batch)
+
+    if (batch.length < 1000) {
+      break
+    }
+
+    page += 1
+  }
+
+  const currentMeta = await loadMetaState()
+
+  await saveMetaState({
+    ...currentMeta,
+    total: rows.length,
+    facets: {
+      ...(currentMeta.facets || {}),
+      sources: uniqueSortedValues(rows.map((row) => row.source)),
+      categories: uniqueSortedValues(rows.map((row) => row.category)),
+      regions: uniqueSortedValues(rows.map((row) => row.region))
     }
   })
 }
@@ -1411,7 +1466,7 @@ async function loadAppliedState() {
 }
 
 function updateWorkflowButtons(itemId) {
-  document.querySelectorAll('[data-workflow-action], [data-completion-result]').forEach((button) => {
+  document.querySelectorAll('[data-workflow-action], [data-completion-result], [data-delete-announcement]').forEach((button) => {
     if (button.dataset.announcementId !== itemId) {
       return
     }
@@ -1495,6 +1550,45 @@ async function setCompletionResult(itemId, completionResult) {
   } catch (error) {
     console.error(error)
     alert('완료 결과 저장에 실패했습니다.')
+  } finally {
+    state.togglingIds.delete(itemId)
+    updateWorkflowButtons(itemId)
+  }
+}
+
+async function deleteAnnouncement(itemId) {
+  const item = state.currentItems.find((entry) => entry.id === itemId) || getWorkflowRecord(itemId)
+
+  if (!item || !canDeleteAnnouncement(item) || state.togglingIds.has(itemId)) {
+    return
+  }
+
+  if (!window.confirm('이 직접등록 공고를 완전히 삭제할까요?')) {
+    return
+  }
+
+  state.togglingIds.add(itemId)
+  updateWorkflowButtons(itemId)
+
+  try {
+    await fetchSupabase(`support_announcements?id=eq.${encodeURIComponent(itemId)}`, {
+      method: 'DELETE',
+      headers: {
+        Prefer: 'return=minimal'
+      }
+    })
+
+    if (state.workflowMap[itemId]) {
+      await window.AppliedStore.removeWorkflow(itemId)
+      delete state.workflowMap[itemId]
+    }
+
+    await rebuildMetaStateFromAnnouncements()
+    await loadMeta()
+    await loadAnnouncements()
+  } catch (error) {
+    console.error(error)
+    alert('공고 삭제에 실패했습니다.')
   } finally {
     state.togglingIds.delete(itemId)
     updateWorkflowButtons(itemId)
@@ -1639,6 +1733,13 @@ byId('tab-completed').addEventListener('click', async () => {
   await setActiveTab('completed')
 })
 document.addEventListener('click', async (event) => {
+  const deleteButton = event.target.closest('[data-delete-announcement]')
+
+  if (deleteButton) {
+    await deleteAnnouncement(deleteButton.dataset.announcementId)
+    return
+  }
+
   const resultButton = event.target.closest('[data-completion-result]')
 
   if (resultButton) {
