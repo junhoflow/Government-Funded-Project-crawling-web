@@ -597,7 +597,7 @@ function createActionControls(item) {
     wrapper.appendChild(button)
   })
 
-  if (canDeleteAnnouncement(item)) {
+  if (state.activeTab === 'open' && canDeleteAnnouncement(item)) {
     const button = document.createElement('button')
 
     button.type = 'button'
@@ -1559,7 +1559,7 @@ async function setCompletionResult(itemId, completionResult) {
 async function deleteAnnouncement(itemId) {
   const item = state.currentItems.find((entry) => entry.id === itemId) || getWorkflowRecord(itemId)
 
-  if (!item || !canDeleteAnnouncement(item) || state.togglingIds.has(itemId)) {
+  if (state.activeTab !== 'open' || !item || !canDeleteAnnouncement(item) || state.togglingIds.has(itemId)) {
     return
   }
 
