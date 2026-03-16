@@ -24,6 +24,10 @@
     return value === 'pending' || value === 'completed' ? value : 'completed'
   }
 
+  function normalizeCompletionResult(value) {
+    return value === 'selected' || value === 'rejected' ? value : ''
+  }
+
   function normalizeRecord(value, id) {
     if (!value) {
       return null
@@ -44,7 +48,8 @@
       ...value,
       id: value.id || id,
       statusKey: value.statusKey || '',
-      workflowStatus: normalizeWorkflowStatus(value.workflowStatus || value.status)
+      workflowStatus: normalizeWorkflowStatus(value.workflowStatus || value.status),
+      completionResult: normalizeCompletionResult(value.completionResult || value.resultStatus)
     }
   }
 
@@ -99,6 +104,7 @@
 
   function serializeItem(item, workflowStatus) {
     const statusKey = item.statusKey || ''
+    const completionResult = workflowStatus === 'completed' ? normalizeCompletionResult(item.completionResult) : ''
 
     return {
       id: item.id,
@@ -119,7 +125,8 @@
       postedAt: item.postedAt || '',
       isOngoing: Boolean(item.isOngoing || statusKey === 'ongoing'),
       statusKey,
-      workflowStatus
+      workflowStatus,
+      completionResult
     }
   }
 
@@ -127,7 +134,7 @@
     const url =
       `${supabaseUrl}/rest/v1/applied_announcements?` +
       [
-        'select=announcement_id,announcement_title,source,detail_url,origin_url,category,region,managing_org,executing_org,apply_period_text,apply_target,apply_start,apply_end,summary,search_text,posted_at,is_ongoing,workflow_status,updated_at',
+        'select=announcement_id,announcement_title,source,detail_url,origin_url,category,region,managing_org,executing_org,apply_period_text,apply_target,apply_start,apply_end,summary,search_text,posted_at,is_ongoing,workflow_status,completion_result,updated_at',
         `profile_key=eq.${encodeURIComponent(profileKey)}`
       ].join('&')
 
@@ -159,7 +166,8 @@
         searchText: row.search_text || '',
         postedAt: row.posted_at || '',
         isOngoing: Boolean(row.is_ongoing),
-        workflowStatus: normalizeWorkflowStatus(row.workflow_status)
+        workflowStatus: normalizeWorkflowStatus(row.workflow_status),
+        completionResult: normalizeCompletionResult(row.completion_result)
       }
 
       return acc
@@ -199,6 +207,7 @@
             posted_at: record.postedAt,
             is_ongoing: record.isOngoing,
             workflow_status: record.workflowStatus,
+            completion_result: record.completionResult,
             updated_at: new Date().toISOString()
           }
         ])

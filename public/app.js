@@ -3,6 +3,7 @@ const REPO_WORKFLOW_URL =
 const META_STATE_KEY = 'support_database_meta'
 const SYNC_STATE_KEY = 'support_sync_status'
 const OPEN_VIEW_NAME = 'support_announcements_deduped'
+const MANUAL_SOURCE_KEY = 'manual'
 const PAGE_SIZE = 50
 const OPEN_SCAN_PAGE_SIZE = 200
 const OPEN_SELECT_COLUMNS = [
@@ -85,6 +86,12 @@ const filterIds = [
 
 function byId(id) {
   return document.getElementById(id)
+}
+
+function uniqueSortedValues(values) {
+  return Array.from(new Set((values || []).map((value) => String(value || '').trim()).filter(Boolean))).sort((left, right) =>
+    left.localeCompare(right, 'ko')
+  )
 }
 
 function denyAccess() {
@@ -183,6 +190,10 @@ function formatDateTime(value) {
   return new Date(value).toLocaleString('ko-KR')
 }
 
+function formatDate(value) {
+  return value ? String(value).slice(0, 10) : ''
+}
+
 function escapeHtml(value) {
   return String(value || '')
     .replaceAll('&', '&amp;')
@@ -265,6 +276,20 @@ function normalizeText(value) {
 
 function getWorkflowRecord(itemId) {
   return state.workflowMap[itemId] || null
+}
+
+function getCompletionResultInfo(item) {
+  const key = item && item.completionResult ? item.completionResult : ''
+
+  if (key === 'selected') {
+    return { key, text: '선발', className: 'completion-selected' }
+  }
+
+  if (key === 'rejected') {
+    return { key, text: '탈락', className: 'completion-rejected' }
+  }
+
+  return null
 }
 
 function getSelectedCategories() {
@@ -438,6 +463,25 @@ function clearAllCategories() {
   })
 }
 
+function buildManualApplyPeriodText(applyStart, applyEnd) {
+  return [applyStart, applyEnd].filter(Boolean).join(' ~ ')
+}
+
+function buildManualSearchText(item) {
+  return normalizeText(
+    [
+      item.title,
+      item.source,
+      item.category,
+      item.region,
+      item.managingOrg,
+      item.executingOrg,
+      item.applyTarget,
+      item.summary
+    ].join(' ')
+  )
+}
+
 function applyInitialFilterDefaults() {
   if (state.initialFiltersApplied) {
     return
@@ -492,17 +536,37 @@ function getTabActions() {
 
 function createActionControls(item) {
   const actions = getTabActions()
+  const isBusy = state.togglingIds.has(item.id)
+  const wrapper = document.createElement('div')
+  wrapper.className = 'workflow-actions'
 
-  if (!actions.length) {
+  if (state.activeTab === 'completed') {
+    ;[
+      { key: 'selected', label: '선발' },
+      { key: 'rejected', label: '탈락' }
+    ].forEach((result) => {
+      const button = document.createElement('button')
+
+      button.type = 'button'
+      button.className = `workflow-action workflow-result ${result.key === 'selected' ? 'workflow-selected' : 'workflow-rejected'}`
+      button.dataset.completionResult = result.key
+      button.dataset.announcementId = item.id
+      button.disabled = isBusy
+      button.textContent = result.label
+      button.title = result.label
+
+      if (item.completionResult === result.key) {
+        button.classList.add('is-active')
+      }
+
+      wrapper.appendChild(button)
+    })
+  } else if (!actions.length) {
     const span = document.createElement('span')
     span.className = 'action-complete'
     span.textContent = '완료'
     return span
   }
-
-  const isBusy = state.togglingIds.has(item.id)
-  const wrapper = document.createElement('div')
-  wrapper.className = 'workflow-actions'
 
   actions.forEach((action) => {
     const button = document.createElement('button')
@@ -589,6 +653,7 @@ function renderRows(items) {
     const periodCell = fragment.querySelector('.period-cell')
     const statusCell = fragment.querySelector('.status-cell')
     const actionCell = fragment.querySelector('.action-cell')
+    const completionResultInfo = getCompletionResultInfo(item)
 
     sourceCell.textContent = sourceText
     sourceCell.title = sourceText
@@ -605,6 +670,9 @@ function renderRows(items) {
     periodCell.textContent = periodText
     periodCell.title = periodText
     statusCell.appendChild(createStatusBadge(statusInfo))
+    if (completionResultInfo) {
+      statusCell.appendChild(createCompletionBadge(completionResultInfo))
+    }
     statusCell.title = statusInfo.text
     actionCell.appendChild(createActionControls(item))
 
@@ -614,6 +682,9 @@ function renderRows(items) {
       `<span class="mobile-pill">${escapeHtml(sourceText)}</span>` +
       `<span class="mobile-pill">${escapeHtml(categoryText)}</span>`
     mobileFragment.querySelector('.mobile-card-applied').appendChild(createStatusBadge(statusInfo))
+    if (completionResultInfo) {
+      mobileFragment.querySelector('.mobile-card-applied').appendChild(createCompletionBadge(completionResultInfo))
+    }
     mobileFragment.querySelector('.mobile-card-title').replaceWith(createTitleLink(item, 'mobile-card-title'))
     mobileFragment.querySelector('.mobile-card-meta').textContent = `${sourceText} · ${categoryText}`
     mobileFragment.querySelector('.mobile-region').textContent = regionText
@@ -624,6 +695,13 @@ function renderRows(items) {
 
     mobileBody.appendChild(mobileFragment)
   })
+}
+
+function createCompletionBadge(resultInfo) {
+  const span = document.createElement('span')
+  span.className = `completion-badge ${resultInfo.className}`
+  span.textContent = resultInfo.text
+  return span
 }
 
 function quoteCsv(value) {
@@ -750,11 +828,32 @@ async function fetchOpenAnnouncementsPage(page, pageSize, includeCount = false) 
   }
 }
 
-async function loadMeta() {
+async function loadMetaState() {
   const result = await fetchSupabase(
     `support_state?select=state_value&state_key=eq.${encodeURIComponent(META_STATE_KEY)}&limit=1`
   )
-  const meta = Array.isArray(result.data) && result.data[0] ? result.data[0].state_value || {} : {}
+
+  return Array.isArray(result.data) && result.data[0] ? result.data[0].state_value || {} : {}
+}
+
+async function saveMetaState(meta) {
+  await fetchSupabase('support_state?on_conflict=state_key', {
+    method: 'POST',
+    headers: {
+      Prefer: 'resolution=merge-duplicates,return=minimal'
+    },
+    body: JSON.stringify([
+      {
+        state_key: META_STATE_KEY,
+        state_value: meta || {},
+        updated_at: new Date().toISOString()
+      }
+    ])
+  })
+}
+
+async function loadMeta() {
+  const meta = await loadMetaState()
 
   state.totalAnnouncements = Number(meta.total || 0)
   byId('total-count').textContent = state.totalAnnouncements.toLocaleString('ko-KR')
@@ -765,6 +864,22 @@ async function loadMeta() {
   populateSelect('source', facets.sources || [], '전체 출처')
   populateCategoryChips(facets.categories || [])
   populateSelect('region', facets.regions || [], '전체 지역')
+}
+
+async function updateMetaAfterManualInsert(item) {
+  const currentMeta = await loadMetaState()
+  const currentFacets = currentMeta.facets || {}
+
+  await saveMetaState({
+    ...currentMeta,
+    total: Number(currentMeta.total || 0) + 1,
+    facets: {
+      ...currentFacets,
+      sources: uniqueSortedValues([...(currentFacets.sources || []), item.source]),
+      categories: uniqueSortedValues([...(currentFacets.categories || []), item.category]),
+      regions: uniqueSortedValues([...(currentFacets.regions || []), item.region])
+    }
+  })
 }
 
 function paginateClient(items, page, pageSize = PAGE_SIZE) {
@@ -1084,6 +1199,164 @@ async function exportCurrentRows() {
   )
 }
 
+function openManualEntryModal() {
+  const backdrop = byId('manual-entry-backdrop')
+  const feedback = byId('manual-entry-feedback')
+
+  byId('manual-entry-form').reset()
+  byId('manual-source').value = '직접등록'
+  feedback.textContent = ''
+  backdrop.classList.remove('hidden')
+  document.body.style.overflow = 'hidden'
+  byId('manual-title').focus()
+}
+
+function closeManualEntryModal() {
+  byId('manual-entry-backdrop').classList.add('hidden')
+  byId('manual-entry-feedback').textContent = ''
+  document.body.style.overflow = ''
+}
+
+async function saveManualAnnouncement(event) {
+  event.preventDefault()
+
+  if (!isSupabaseReady()) {
+    alert('직접 추가 기능은 Supabase 설정이 필요합니다.')
+    return
+  }
+
+  const submitButton = byId('submit-manual-entry')
+  const feedback = byId('manual-entry-feedback')
+  const formData = new FormData(event.currentTarget)
+  const now = new Date()
+  const nowIso = now.toISOString()
+  const postedAt = formatDate(nowIso)
+  const source = String(formData.get('source') || '').trim() || '직접등록'
+  const title = String(formData.get('title') || '').trim()
+  const category = String(formData.get('category') || '').trim()
+  const region = String(formData.get('region') || '').trim()
+  const applyTarget = String(formData.get('applyTarget') || '').trim()
+  const managingOrg = String(formData.get('managingOrg') || '').trim()
+  const executingOrg = String(formData.get('executingOrg') || '').trim()
+  const applyStart = String(formData.get('applyStart') || '').trim()
+  const applyEnd = String(formData.get('applyEnd') || '').trim()
+  const detailUrl = String(formData.get('detailUrl') || '').trim()
+  const summary = String(formData.get('summary') || '').trim()
+
+  if (!title) {
+    feedback.textContent = '공고명은 필수입니다.'
+    byId('manual-title').focus()
+    return
+  }
+
+  const sourceId = `${MANUAL_SOURCE_KEY}-${Date.now()}`
+  const manualItem = {
+    id: sourceId,
+    sourceKey: MANUAL_SOURCE_KEY,
+    source,
+    sourceId,
+    title,
+    summary,
+    category,
+    region,
+    managingOrg,
+    executingOrg,
+    supervisingInstitutionType: '',
+    applicationMethod: '직접등록',
+    applicationSite: source,
+    applicationUrl: detailUrl,
+    detailUrl,
+    originUrl: detailUrl,
+    contact: '',
+    applyTarget,
+    applyAge: '',
+    experience: '',
+    preferred: '',
+    applicantExclusion: '',
+    postedAt,
+    applyStart,
+    applyEnd,
+    applyPeriodText: buildManualApplyPeriodText(applyStart, applyEnd),
+    statusKey: '',
+    isNew: true,
+    searchText: '',
+    firstSeenAt: nowIso,
+    lastSeenAt: nowIso,
+    tags: uniqueSortedValues([category, region])
+  }
+  const statusKey = getDerivedStatusKey(manualItem, now)
+
+  manualItem.statusKey = statusKey
+  manualItem.searchText = buildManualSearchText(manualItem)
+
+  const payload = {
+    id: manualItem.id,
+    source_key: manualItem.sourceKey,
+    source: manualItem.source,
+    source_id: manualItem.sourceId,
+    title: manualItem.title,
+    summary: manualItem.summary,
+    category: manualItem.category,
+    region: manualItem.region,
+    managing_org: manualItem.managingOrg,
+    executing_org: manualItem.executingOrg,
+    supervising_institution_type: manualItem.supervisingInstitutionType,
+    application_method: manualItem.applicationMethod,
+    application_site: manualItem.applicationSite,
+    application_url: manualItem.applicationUrl,
+    detail_url: manualItem.detailUrl,
+    origin_url: manualItem.originUrl,
+    contact: manualItem.contact,
+    apply_target: manualItem.applyTarget,
+    apply_age: manualItem.applyAge,
+    experience: manualItem.experience,
+    preferred: manualItem.preferred,
+    applicant_exclusion: manualItem.applicantExclusion,
+    posted_at: manualItem.postedAt,
+    apply_start: manualItem.applyStart,
+    apply_end: manualItem.applyEnd,
+    apply_period_text: manualItem.applyPeriodText,
+    status_key: manualItem.statusKey,
+    is_new: true,
+    search_text: manualItem.searchText,
+    first_seen_at: manualItem.firstSeenAt,
+    last_seen_at: manualItem.lastSeenAt,
+    tags: manualItem.tags,
+    payload: {
+      manualEntry: true,
+      createdAt: nowIso
+    },
+    sync_token: MANUAL_SOURCE_KEY,
+    updated_at: nowIso
+  }
+
+  try {
+    submitButton.disabled = true
+    feedback.textContent = '저장 중입니다...'
+
+    await fetchSupabase('support_announcements?on_conflict=id', {
+      method: 'POST',
+      headers: {
+        Prefer: 'resolution=merge-duplicates,return=minimal'
+      },
+      body: JSON.stringify([payload])
+    })
+    await updateMetaAfterManualInsert(manualItem)
+
+    state.activeTab = 'open'
+    state.page = 1
+    closeManualEntryModal()
+    await loadMeta()
+    await loadAnnouncements()
+    alert('정부지원사업이 직접 추가되었습니다.')
+  } catch (error) {
+    console.error(error)
+    feedback.textContent = '직접 추가에 실패했습니다. 잠시 후 다시 시도하세요.'
+  } finally {
+    submitButton.disabled = false
+  }
+}
+
 async function applyFilters() {
   if (state.filterDebounceTimer !== null) {
     window.clearTimeout(state.filterDebounceTimer)
@@ -1131,7 +1404,7 @@ async function loadAppliedState() {
 }
 
 function updateWorkflowButtons(itemId) {
-  document.querySelectorAll('[data-workflow-action]').forEach((button) => {
+  document.querySelectorAll('[data-workflow-action], [data-completion-result]').forEach((button) => {
     if (button.dataset.announcementId !== itemId) {
       return
     }
@@ -1168,9 +1441,13 @@ async function moveWorkflow(itemId, workflowStatus) {
       await window.AppliedStore.removeWorkflow(itemId)
       delete state.workflowMap[itemId]
     } else {
-      await window.AppliedStore.setWorkflow(item, workflowStatus)
-      state.workflowMap[itemId] = {
+      const nextItem = {
         ...item,
+        completionResult: workflowStatus === 'completed' ? item.completionResult || '' : ''
+      }
+      await window.AppliedStore.setWorkflow(nextItem, workflowStatus)
+      state.workflowMap[itemId] = {
+        ...nextItem,
         workflowStatus
       }
     }
@@ -1179,6 +1456,38 @@ async function moveWorkflow(itemId, workflowStatus) {
   } catch (error) {
     console.error(error)
     alert('지원 상태 저장에 실패했습니다.')
+  } finally {
+    state.togglingIds.delete(itemId)
+    updateWorkflowButtons(itemId)
+  }
+}
+
+async function setCompletionResult(itemId, completionResult) {
+  const item = getWorkflowRecord(itemId)
+
+  if (!item || item.workflowStatus !== 'completed' || state.togglingIds.has(itemId)) {
+    return
+  }
+
+  state.togglingIds.add(itemId)
+  updateWorkflowButtons(itemId)
+
+  try {
+    const nextItem = {
+      ...item,
+      completionResult
+    }
+
+    await window.AppliedStore.setWorkflow(nextItem, 'completed')
+    state.workflowMap[itemId] = {
+      ...nextItem,
+      workflowStatus: 'completed'
+    }
+
+    await loadAnnouncements()
+  } catch (error) {
+    console.error(error)
+    alert('완료 결과 저장에 실패했습니다.')
   } finally {
     state.togglingIds.delete(itemId)
     updateWorkflowButtons(itemId)
@@ -1268,6 +1577,15 @@ async function goToNextPage() {
 })
 
 byId('sync-button').addEventListener('click', startSync)
+byId('open-manual-entry').addEventListener('click', openManualEntryModal)
+byId('close-manual-entry').addEventListener('click', closeManualEntryModal)
+byId('cancel-manual-entry').addEventListener('click', closeManualEntryModal)
+byId('manual-entry-form').addEventListener('submit', saveManualAnnouncement)
+byId('manual-entry-backdrop').addEventListener('click', (event) => {
+  if (event.target === byId('manual-entry-backdrop')) {
+    closeManualEntryModal()
+  }
+})
 byId('export-link').addEventListener('click', async (event) => {
   event.preventDefault()
   if (byId('export-link').classList.contains('is-disabled')) {
@@ -1314,6 +1632,13 @@ byId('tab-completed').addEventListener('click', async () => {
   await setActiveTab('completed')
 })
 document.addEventListener('click', async (event) => {
+  const resultButton = event.target.closest('[data-completion-result]')
+
+  if (resultButton) {
+    await setCompletionResult(resultButton.dataset.announcementId, resultButton.dataset.completionResult)
+    return
+  }
+
   const button = event.target.closest('[data-workflow-action]')
 
   if (!button) {
@@ -1321,6 +1646,12 @@ document.addEventListener('click', async (event) => {
   }
 
   await moveWorkflow(button.dataset.announcementId, button.dataset.workflowAction)
+})
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !byId('manual-entry-backdrop').classList.contains('hidden')) {
+    closeManualEntryModal()
+  }
 })
 
 setInterval(async () => {

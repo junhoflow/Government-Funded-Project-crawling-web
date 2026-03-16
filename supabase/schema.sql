@@ -18,10 +18,13 @@ create table if not exists public.applied_announcements (
   posted_at text not null default '',
   is_ongoing boolean not null default false,
   workflow_status text not null default 'pending',
+  completion_result text not null default '',
   updated_at timestamptz not null default now(),
   primary key (profile_key, announcement_id),
   constraint applied_announcements_workflow_status_check
-    check (workflow_status in ('pending', 'completed'))
+    check (workflow_status in ('pending', 'completed')),
+  constraint applied_announcements_completion_result_check
+    check (completion_result in ('', 'selected', 'rejected'))
 );
 
 alter table public.applied_announcements add column if not exists origin_url text not null default '';
@@ -38,6 +41,7 @@ alter table public.applied_announcements add column if not exists search_text te
 alter table public.applied_announcements add column if not exists posted_at text not null default '';
 alter table public.applied_announcements add column if not exists is_ongoing boolean not null default false;
 alter table public.applied_announcements add column if not exists workflow_status text not null default 'pending';
+alter table public.applied_announcements add column if not exists completion_result text not null default '';
 
 do $$
 begin
@@ -52,10 +56,28 @@ begin
   end if;
 end $$;
 
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'applied_announcements_completion_result_check'
+  ) then
+    alter table public.applied_announcements
+      add constraint applied_announcements_completion_result_check
+      check (completion_result in ('', 'selected', 'rejected'));
+  end if;
+end $$;
+
 update public.applied_announcements
 set workflow_status = 'completed'
 where workflow_status is null
    or workflow_status not in ('pending', 'completed');
+
+update public.applied_announcements
+set completion_result = ''
+where completion_result is null
+   or completion_result not in ('', 'selected', 'rejected');
 
 alter table public.applied_announcements enable row level security;
 

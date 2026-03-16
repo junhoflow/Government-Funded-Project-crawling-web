@@ -103,6 +103,90 @@ h1 {
   gap: 12px;
 }
 
+.manual-entry-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(17, 27, 31, 0.44);
+  backdrop-filter: blur(8px);
+}
+
+.manual-entry-modal {
+  width: min(820px, 100%);
+  max-height: min(88vh, 880px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 4px);
+  background: #fffaf2;
+  box-shadow: var(--shadow);
+}
+
+.manual-entry-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.manual-entry-header strong {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.manual-entry-header p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.manual-entry-form {
+  margin-top: 20px;
+}
+
+.manual-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.manual-entry-full {
+  grid-column: 1 / -1;
+}
+
+.manual-entry-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.manual-entry-form label span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.manual-entry-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.manual-entry-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.manual-entry-feedback {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .primary-button,
 .excel-button,
 .secondary-button,
@@ -629,6 +713,10 @@ tbody tr.new-row:hover {
 
 .status-cell {
   width: 6%;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .workflow-actions {
@@ -670,6 +758,29 @@ tbody tr.new-row:hover {
   color: #176132;
 }
 
+.workflow-selected {
+  background: rgba(31, 122, 63, 0.1);
+  color: #176132;
+}
+
+.workflow-rejected {
+  background: rgba(140, 55, 35, 0.1);
+  color: #8c3723;
+}
+
+.workflow-result.is-active {
+  border-color: transparent;
+  color: #fff;
+}
+
+.workflow-selected.is-active {
+  background: #1f7a3f;
+}
+
+.workflow-rejected.is-active {
+  background: #b24a2c;
+}
+
 .workflow-open {
   background: rgba(28, 27, 24, 0.06);
   color: var(--ink);
@@ -683,6 +794,27 @@ tbody tr.new-row:hover {
 .action-complete {
   background: rgba(31, 122, 63, 0.12);
   color: #176132;
+}
+
+.completion-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 2px 6px;
+  font-size: 0.64rem;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.completion-selected {
+  background: rgba(31, 122, 63, 0.12);
+  color: #176132;
+}
+
+.completion-rejected {
+  background: rgba(178, 74, 44, 0.12);
+  color: #8c3723;
 }
 
 .status-badge.active {
@@ -901,5 +1033,25 @@ tbody tr.urgent-row:hover {
 
   .table-footer {
     justify-content: stretch;
+  }
+
+  .manual-entry-backdrop {
+    padding: 14px;
+  }
+
+  .manual-entry-modal {
+    padding: 18px;
+  }
+
+  .manual-entry-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manual-entry-actions {
+    flex-wrap: wrap;
+  }
+
+  .manual-entry-feedback {
+    width: 100%;
   }
 }

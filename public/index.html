@@ -16,6 +16,9 @@
         <h1 class="hero-title">정부지원사업 통합 WEB</h1>
         <div class="hero-actions">
           <button id="sync-button" class="primary-button">지금 동기화</button>
+          <button id="open-manual-entry" class="secondary-button" type="button">
+            직접 추가
+          </button>
           <a id="export-link" class="excel-button" href="#"
             >현재 조건 CSV 다운로드</a
           >
@@ -217,6 +220,141 @@
             </button>
           </div>
         </div>
+      </section>
+    </div>
+
+    <div id="manual-entry-backdrop" class="manual-entry-backdrop hidden">
+      <section
+        class="manual-entry-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="manual-entry-title"
+      >
+        <div class="manual-entry-header">
+          <div>
+            <strong id="manual-entry-title">정부지원사업 직접 추가</strong>
+            <p>직접 확인한 공고를 바로 목록에 등록합니다.</p>
+          </div>
+          <button
+            id="close-manual-entry"
+            class="inline-clear-button"
+            type="button"
+          >
+            닫기
+          </button>
+        </div>
+        <form id="manual-entry-form" class="manual-entry-form">
+          <div class="manual-entry-grid">
+            <label>
+              <span>출처</span>
+              <input
+                id="manual-source"
+                name="source"
+                type="text"
+                value="직접등록"
+                placeholder="예: 직접등록"
+              />
+            </label>
+            <label>
+              <span>공고명</span>
+              <input
+                id="manual-title"
+                name="title"
+                type="text"
+                required
+                placeholder="공고명을 입력하세요"
+              />
+            </label>
+            <label>
+              <span>분야</span>
+              <input
+                id="manual-category"
+                name="category"
+                type="text"
+                placeholder="예: 창업, R&D"
+              />
+            </label>
+            <label>
+              <span>지역</span>
+              <input
+                id="manual-region"
+                name="region"
+                type="text"
+                placeholder="예: 전국, 서울"
+              />
+            </label>
+            <label>
+              <span>지원대상</span>
+              <input
+                id="manual-apply-target"
+                name="applyTarget"
+                type="text"
+                placeholder="예: 예비창업자"
+              />
+            </label>
+            <label>
+              <span>주관기관</span>
+              <input
+                id="manual-managing-org"
+                name="managingOrg"
+                type="text"
+                placeholder="주관기관"
+              />
+            </label>
+            <label>
+              <span>수행기관</span>
+              <input
+                id="manual-executing-org"
+                name="executingOrg"
+                type="text"
+                placeholder="수행기관"
+              />
+            </label>
+            <label>
+              <span>상세 URL</span>
+              <input
+                id="manual-detail-url"
+                name="detailUrl"
+                type="url"
+                placeholder="https://..."
+              />
+            </label>
+            <label>
+              <span>신청 시작일</span>
+              <input id="manual-apply-start" name="applyStart" type="date" />
+            </label>
+            <label>
+              <span>신청 마감일</span>
+              <input id="manual-apply-end" name="applyEnd" type="date" />
+            </label>
+            <label class="manual-entry-full">
+              <span>요약</span>
+              <textarea
+                id="manual-summary"
+                name="summary"
+                rows="4"
+                placeholder="핵심 내용을 입력하세요"
+              ></textarea>
+            </label>
+          </div>
+          <div class="manual-entry-actions">
+            <p id="manual-entry-feedback" class="manual-entry-feedback"></p>
+            <button
+              id="cancel-manual-entry"
+              class="secondary-button"
+              type="button"
+            >
+              취소
+            </button>
+            <button
+              id="submit-manual-entry"
+              class="primary-button"
+              type="submit"
+            >
+              저장
+            </button>
+          </div>
+        </form>
       </section>
     </div>
 
