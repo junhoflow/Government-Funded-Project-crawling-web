@@ -159,13 +159,20 @@ function supabaseHeaders(extra = {}, includeCount = false) {
 }
 
 async function fetchSupabase(path, options = {}) {
+  const headers = supabaseHeaders(options.headers || {}, options.includeCount)
+
+  if (options.body && !Object.keys(headers).some((key) => key.toLowerCase() === 'content-type')) {
+    headers['Content-Type'] = 'application/json'
+  }
+
   const response = await fetch(`${supabaseRestBase}/${path}`, {
     ...options,
-    headers: supabaseHeaders(options.headers || {}, options.includeCount)
+    headers
   })
 
   if (!response.ok) {
-    throw new Error(`Supabase request failed: ${response.status}`)
+    const message = await response.text()
+    throw new Error(`Supabase request failed: ${response.status}${message ? ` ${message}` : ''}`)
   }
 
   const text = await response.text()
