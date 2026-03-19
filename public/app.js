@@ -1013,9 +1013,11 @@ function updatePaginationControls(page, totalPages) {
 function updateTabCounts(openCount) {
   const hiddenCount = Object.keys(state.workflowMap).length
   const defaultOpenCount = Math.max(state.totalAnnouncements - hiddenCount, 0)
+  const pendingFilteredCount = getWorkflowItemsByStatus('pending').filter(matchesCurrentFilters).length
+  const completedFilteredCount = getWorkflowItemsByStatus('completed').filter(matchesCurrentFilters).length
   byId('tab-open-count').textContent = `(${(openCount === undefined ? defaultOpenCount : openCount).toLocaleString('ko-KR')})`
-  byId('tab-pending-count').textContent = `(${getWorkflowItemsByStatus('pending').length.toLocaleString('ko-KR')})`
-  byId('tab-completed-count').textContent = `(${getWorkflowItemsByStatus('completed').length.toLocaleString('ko-KR')})`
+  byId('tab-pending-count').textContent = `(${pendingFilteredCount.toLocaleString('ko-KR')})`
+  byId('tab-completed-count').textContent = `(${completedFilteredCount.toLocaleString('ko-KR')})`
 }
 
 function updateTabButtons() {

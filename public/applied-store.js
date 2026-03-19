@@ -7,6 +7,7 @@
   const profileKey = String(config.profileKey || 'default')
   let mode = isSupabaseEnabled() ? 'supabase' : 'local'
   let lastError = null
+  let supportsCompletionResult = true
 
   function isSupabaseEnabled() {
     return Boolean(supabaseUrl && supabaseAnonKey && profileKey)
@@ -19,6 +20,25 @@
       'Content-Type': 'application/json',
       ...extra
     }
+  }
+
+  async function readErrorMessage(response) {
+    const text = await response.text()
+
+    if (!text) {
+      return ''
+    }
+
+    try {
+      const payload = JSON.parse(text)
+      return payload && payload.message ? String(payload.message) : text
+    } catch (error) {
+      return text
+    }
+  }
+
+  function isMissingCompletionResultMessage(message) {
+    return String(message || '').includes('completion_result')
   }
 
   function normalizeWorkflowStatus(value) {
@@ -134,10 +154,32 @@
   }
 
   async function loadRemote() {
+    const selectColumns = [
+      'announcement_id',
+      'announcement_title',
+      'source',
+      'detail_url',
+      'origin_url',
+      'category',
+      'region',
+      'managing_org',
+      'executing_org',
+      'apply_period_text',
+      'apply_target',
+      'apply_start',
+      'apply_end',
+      'summary',
+      'search_text',
+      'posted_at',
+      'is_ongoing',
+      'workflow_status',
+      ...(supportsCompletionResult ? ['completion_result'] : []),
+      'updated_at'
+    ]
     const url =
       `${supabaseUrl}/rest/v1/applied_announcements?` +
       [
-        'select=announcement_id,announcement_title,source,detail_url,origin_url,category,region,managing_org,executing_org,apply_period_text,apply_target,apply_start,apply_end,summary,search_text,posted_at,is_ongoing,workflow_status,completion_result,updated_at',
+        `select=${selectColumns.join(',')}`,
         `profile_key=eq.${encodeURIComponent(profileKey)}`
       ].join('&')
 
@@ -146,7 +188,14 @@
     })
 
     if (!response.ok) {
-      throw new Error(`DB load failed: ${response.status}`)
+      const message = await readErrorMessage(response)
+
+      if (supportsCompletionResult && isMissingCompletionResultMessage(message)) {
+        supportsCompletionResult = false
+        return loadRemote()
+      }
+
+      throw new Error(`DB load failed: ${response.status}${message ? ` ${message}` : ''}`)
     }
 
     const rows = await response.json()
@@ -170,7 +219,7 @@
         postedAt: row.posted_at || '',
         isOngoing: Boolean(row.is_ongoing),
         workflowStatus: normalizeWorkflowStatus(row.workflow_status),
-        completionResult: normalizeCompletionResult(row.completion_result),
+        completionResult: normalizeCompletionResult(supportsCompletionResult ? row.completion_result : ''),
         updatedAt: row.updated_at || ''
       }
 
@@ -187,6 +236,33 @@
       ...serializeItem(item, workflowStatus),
       updatedAt
     }
+    const payload = {
+      profile_key: profileKey,
+      announcement_id: record.id,
+      announcement_title: record.title,
+      source: record.source,
+      detail_url: record.detailUrl,
+      origin_url: record.originUrl,
+      category: record.category,
+      region: record.region,
+      managing_org: record.managingOrg,
+      executing_org: record.executingOrg,
+      apply_period_text: record.applyPeriodText,
+      apply_target: record.applyTarget,
+      apply_start: record.applyStart,
+      apply_end: record.applyEnd,
+      summary: record.summary,
+      search_text: record.searchText,
+      posted_at: record.postedAt,
+      is_ongoing: record.isOngoing,
+      workflow_status: record.workflowStatus,
+      updated_at: updatedAt
+    }
+
+    if (supportsCompletionResult) {
+      payload.completion_result = record.completionResult
+    }
+
     const response = await fetch(
       `${supabaseUrl}/rest/v1/applied_announcements?on_conflict=profile_key,announcement_id`,
       {
@@ -194,36 +270,19 @@
         headers: getHeaders({
           Prefer: 'resolution=merge-duplicates,return=minimal'
         }),
-        body: JSON.stringify([
-          {
-            profile_key: profileKey,
-            announcement_id: record.id,
-            announcement_title: record.title,
-            source: record.source,
-            detail_url: record.detailUrl,
-            origin_url: record.originUrl,
-            category: record.category,
-            region: record.region,
-            managing_org: record.managingOrg,
-            executing_org: record.executingOrg,
-            apply_period_text: record.applyPeriodText,
-            apply_target: record.applyTarget,
-            apply_start: record.applyStart,
-            apply_end: record.applyEnd,
-            summary: record.summary,
-            search_text: record.searchText,
-            posted_at: record.postedAt,
-            is_ongoing: record.isOngoing,
-            workflow_status: record.workflowStatus,
-            completion_result: record.completionResult,
-            updated_at: updatedAt
-          }
-        ])
+        body: JSON.stringify([payload])
       }
     )
 
     if (!response.ok) {
-      throw new Error(`DB save failed: ${response.status}`)
+      const message = await readErrorMessage(response)
+
+      if (supportsCompletionResult && isMissingCompletionResultMessage(message)) {
+        supportsCompletionResult = false
+        return upsertRemote(item, workflowStatus)
+      }
+
+      throw new Error(`DB save failed: ${response.status}${message ? ` ${message}` : ''}`)
     }
 
     return record
