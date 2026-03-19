@@ -6,6 +6,7 @@
   const supabaseAnonKey = String(config.supabaseAnonKey || '')
   const profileKey = String(config.profileKey || 'default')
   let mode = isSupabaseEnabled() ? 'supabase' : 'local'
+  let lastError = null
 
   function isSupabaseEnabled() {
     return Boolean(supabaseUrl && supabaseAnonKey && profileKey)
@@ -49,7 +50,8 @@
       id: value.id || id,
       statusKey: value.statusKey || '',
       workflowStatus: normalizeWorkflowStatus(value.workflowStatus || value.status),
-      completionResult: normalizeCompletionResult(value.completionResult || value.resultStatus)
+      completionResult: normalizeCompletionResult(value.completionResult || value.resultStatus),
+      updatedAt: value.updatedAt || ''
     }
   }
 
@@ -126,7 +128,8 @@
       isOngoing: Boolean(item.isOngoing || statusKey === 'ongoing'),
       statusKey,
       workflowStatus,
-      completionResult
+      completionResult,
+      updatedAt: item.updatedAt || ''
     }
   }
 
@@ -167,7 +170,8 @@
         postedAt: row.posted_at || '',
         isOngoing: Boolean(row.is_ongoing),
         workflowStatus: normalizeWorkflowStatus(row.workflow_status),
-        completionResult: normalizeCompletionResult(row.completion_result)
+        completionResult: normalizeCompletionResult(row.completion_result),
+        updatedAt: row.updated_at || ''
       }
 
       return acc
@@ -178,7 +182,11 @@
   }
 
   async function upsertRemote(item, workflowStatus) {
-    const record = serializeItem(item, workflowStatus)
+    const updatedAt = new Date().toISOString()
+    const record = {
+      ...serializeItem(item, workflowStatus),
+      updatedAt
+    }
     const response = await fetch(
       `${supabaseUrl}/rest/v1/applied_announcements?on_conflict=profile_key,announcement_id`,
       {
@@ -208,7 +216,7 @@
             is_ongoing: record.isOngoing,
             workflow_status: record.workflowStatus,
             completion_result: record.completionResult,
-            updated_at: new Date().toISOString()
+            updated_at: updatedAt
           }
         ])
       }
@@ -217,6 +225,8 @@
     if (!response.ok) {
       throw new Error(`DB save failed: ${response.status}`)
     }
+
+    return record
   }
 
   async function removeRemote(id) {
@@ -244,14 +254,18 @@
       if (isSupabaseEnabled()) {
         try {
           mode = 'supabase'
+          lastError = null
           return await loadRemote()
         } catch (error) {
+          console.error('AppliedStore remote load failed:', error)
           mode = 'local'
+          lastError = error
           return loadLocal()
         }
       }
 
       mode = 'local'
+      lastError = null
       return loadLocal()
     },
 
@@ -259,38 +273,53 @@
       if (isSupabaseEnabled()) {
         try {
           mode = 'supabase'
-          await upsertRemote(item, workflowStatus)
+          lastError = null
+          const savedRecord = await upsertRemote(item, workflowStatus)
           const current = loadLocal()
-          current[item.id] = serializeItem(item, workflowStatus)
+          current[item.id] = savedRecord
           saveLocal(current)
-          return
+          return savedRecord
         } catch (error) {
+          console.error('AppliedStore remote write failed:', error)
           mode = 'local'
+          lastError = error
+          throw error
         }
       }
 
+      lastError = null
       const current = loadLocal()
       current[item.id] = serializeItem(item, workflowStatus)
       saveLocal(current)
+      return current[item.id]
     },
 
     async removeWorkflow(itemId) {
       if (isSupabaseEnabled()) {
         try {
           mode = 'supabase'
+          lastError = null
           await removeRemote(itemId)
           removeLocal(itemId)
           return
         } catch (error) {
+          console.error('AppliedStore remote delete failed:', error)
           mode = 'local'
+          lastError = error
+          throw error
         }
       }
 
+      lastError = null
       removeLocal(itemId)
     },
 
     getModeLabel() {
-      return mode === 'supabase' ? 'Supabase DB' : '이 기기 저장'
+      if (mode === 'supabase') {
+        return 'Supabase DB'
+      }
+
+      return lastError ? '이 기기 저장 (DB 연결 실패)' : '이 기기 저장'
     }
   }
 

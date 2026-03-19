@@ -295,6 +295,7 @@ h1 {
   grid-template-areas:
     "label progress"
     "status progress"
+    "storage progress"
     "stages stages";
   column-gap: 14px;
   row-gap: 6px;
@@ -320,6 +321,13 @@ h1 {
 .status-sync-card strong {
   grid-area: status;
   margin-top: 0;
+}
+
+.storage-mode {
+  grid-area: storage;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 
 .status-sync-card .sync-progress {
@@ -870,6 +878,7 @@ tbody tr.urgent-row:hover {
     grid-template-areas:
       "label"
       "status"
+      "storage"
       "progress"
       "stages";
   }

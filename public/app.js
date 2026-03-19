@@ -6,6 +6,7 @@ const OPEN_VIEW_NAME = 'support_announcements_deduped'
 const MANUAL_SOURCE_KEY = 'manual'
 const PAGE_SIZE = 50
 const OPEN_SCAN_PAGE_SIZE = 200
+const WORKFLOW_REFRESH_INTERVAL_MS = 10000
 const OPEN_SELECT_COLUMNS = [
   'id',
   'source_key',
@@ -52,6 +53,7 @@ const state = {
   lastSyncAt: '',
   currentItems: [],
   workflowMap: {},
+  workflowSignature: '',
   activeTab: 'open',
   totalAnnouncements: 0,
   togglingIds: new Set(),
@@ -961,6 +963,27 @@ function getWorkflowItemsByStatus(workflowStatus) {
   return Object.values(state.workflowMap).filter((item) => item.workflowStatus === workflowStatus)
 }
 
+function getWorkflowSignature(workflowMap) {
+  return Object.keys(workflowMap)
+    .sort((left, right) => left.localeCompare(right))
+    .map((id) => {
+      const item = workflowMap[id] || {}
+
+      return [
+        id,
+        item.workflowStatus || '',
+        item.completionResult || '',
+        item.statusKey || '',
+        item.updatedAt || ''
+      ].join('|')
+    })
+    .join('\n')
+}
+
+function syncWorkflowSignature() {
+  state.workflowSignature = getWorkflowSignature(state.workflowMap)
+}
+
 function updatePaginationControls(page, totalPages) {
   ;['page-indicator', 'page-indicator-bottom'].forEach((id) => {
     const indicator = byId(id)
@@ -1451,6 +1474,8 @@ function requestFilterApply({ debounce = false } = {}) {
 }
 
 async function loadAppliedState() {
+  const previousSignature = state.workflowSignature
+
   try {
     state.workflowMap = await window.AppliedStore.load()
   } catch (error) {
@@ -1458,10 +1483,16 @@ async function loadAppliedState() {
     state.workflowMap = {}
   }
 
+  syncWorkflowSignature()
+
   const storageMode = byId('storage-mode')
 
   if (storageMode) {
     storageMode.textContent = window.AppliedStore.getModeLabel()
+  }
+
+  return {
+    changed: previousSignature !== state.workflowSignature
   }
 }
 
@@ -1502,16 +1533,19 @@ async function moveWorkflow(itemId, workflowStatus) {
     if (workflowStatus === 'open') {
       await window.AppliedStore.removeWorkflow(itemId)
       delete state.workflowMap[itemId]
+      syncWorkflowSignature()
     } else {
       const nextItem = {
         ...item,
         completionResult: workflowStatus === 'completed' ? item.completionResult || '' : ''
       }
-      await window.AppliedStore.setWorkflow(nextItem, workflowStatus)
+      const savedRecord = await window.AppliedStore.setWorkflow(nextItem, workflowStatus)
       state.workflowMap[itemId] = {
         ...nextItem,
+        ...savedRecord,
         workflowStatus
       }
+      syncWorkflowSignature()
     }
 
     await loadAnnouncements()
@@ -1540,11 +1574,13 @@ async function setCompletionResult(itemId, completionResult) {
       completionResult
     }
 
-    await window.AppliedStore.setWorkflow(nextItem, 'completed')
+    const savedRecord = await window.AppliedStore.setWorkflow(nextItem, 'completed')
     state.workflowMap[itemId] = {
       ...nextItem,
+      ...savedRecord,
       workflowStatus: 'completed'
     }
+    syncWorkflowSignature()
 
     await loadAnnouncements()
   } catch (error) {
@@ -1581,6 +1617,7 @@ async function deleteAnnouncement(itemId) {
     if (state.workflowMap[itemId]) {
       await window.AppliedStore.removeWorkflow(itemId)
       delete state.workflowMap[itemId]
+      syncWorkflowSignature()
     }
 
     await rebuildMetaStateFromAnnouncements()
@@ -1767,17 +1804,42 @@ setInterval(async () => {
     return
   }
 
+  if (state.togglingIds.size > 0) {
+    return
+  }
+
   try {
-    await loadSyncStatus()
+    const [workflowState] = await Promise.all([loadAppliedState(), loadSyncStatus()])
+    let shouldReloadAnnouncements = Boolean(workflowState.changed)
 
     if (state.lastKnownSyncRunning && !state.syncRunning) {
       await loadMeta()
+      shouldReloadAnnouncements = true
+    }
+
+    if (shouldReloadAnnouncements) {
       await loadAnnouncements()
     }
   } catch (error) {
     console.error(error)
   }
-}, 10000)
+}, WORKFLOW_REFRESH_INTERVAL_MS)
+
+window.addEventListener('focus', async () => {
+  if (!accessGranted || state.togglingIds.size > 0) {
+    return
+  }
+
+  try {
+    const workflowState = await loadAppliedState()
+
+    if (workflowState.changed) {
+      await loadAnnouncements()
+    }
+  } catch (error) {
+    console.error(error)
+  }
+})
 
 async function boot() {
   updateFilterPanelState()
