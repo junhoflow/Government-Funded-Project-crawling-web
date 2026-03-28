@@ -1024,21 +1024,15 @@ function updatePaginationControls(page, totalPages) {
   })
 }
 
-async function resolveOpenTabCount() {
-  const result = await fetchOpenAnnouncementsPage(1, 1, true)
-  const hiddenMatchingCount = Object.values(state.workflowMap).filter((item) => matchesFiltersForTab(item, 'open')).length
+function updateTabCounts() {
+  const workflowCount = Object.keys(state.workflowMap).length
+  const openCount = Math.max(state.totalAnnouncements - workflowCount, 0)
+  const pendingCount = getWorkflowItemsByStatus('pending').length
+  const completedCount = getWorkflowItemsByStatus('completed').length
 
-  return Math.max(result.total - hiddenMatchingCount, 0)
-}
-
-async function updateTabCounts(openCount) {
-  const pendingFilteredCount = getWorkflowItemsByStatus('pending').filter((item) => matchesFiltersForTab(item, 'pending')).length
-  const completedFilteredCount = getWorkflowItemsByStatus('completed').filter((item) => matchesFiltersForTab(item, 'completed')).length
-  const resolvedOpenCount = openCount === undefined ? await resolveOpenTabCount() : openCount
-
-  byId('tab-open-count').textContent = `(${resolvedOpenCount.toLocaleString('ko-KR')})`
-  byId('tab-pending-count').textContent = `(${pendingFilteredCount.toLocaleString('ko-KR')})`
-  byId('tab-completed-count').textContent = `(${completedFilteredCount.toLocaleString('ko-KR')})`
+  byId('tab-open-count').textContent = `(${openCount.toLocaleString('ko-KR')})`
+  byId('tab-pending-count').textContent = `(${pendingCount.toLocaleString('ko-KR')})`
+  byId('tab-completed-count').textContent = `(${completedCount.toLocaleString('ko-KR')})`
 }
 
 function updateTabButtons() {
@@ -1131,7 +1125,7 @@ async function loadOpenAnnouncements(requestId) {
   state.totalPages = paginated.totalPages
   state.currentItems = paginated.items
   renderRows(paginated.items)
-  await updateTabCounts(visibleItems.length)
+  updateTabCounts()
 
   byId('filtered-count').textContent = visibleItems.length.toLocaleString('ko-KR')
   updatePaginationControls(paginated.page, paginated.totalPages)
@@ -1162,7 +1156,7 @@ async function loadAnnouncements() {
   state.totalPages = paginated.totalPages
   state.currentItems = paginated.items
   renderRows(paginated.items)
-  await updateTabCounts()
+  updateTabCounts()
 
   byId('filtered-count').textContent = paginated.total.toLocaleString('ko-KR')
   updatePaginationControls(paginated.page, paginated.totalPages)
