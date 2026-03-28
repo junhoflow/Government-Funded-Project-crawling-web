@@ -314,6 +314,16 @@ function getSelectedCategories() {
   return Array.from(byId('category').querySelectorAll('input[type="checkbox"]:checked')).map((checkbox) => checkbox.value)
 }
 
+function getEffectiveStatusFilter() {
+  const status = normalizeText(byId('status').value)
+
+  if (state.activeTab !== 'open' && status === 'ongoing') {
+    return ''
+  }
+
+  return status
+}
+
 function matchesCurrentFilters(item) {
   const keyword = normalizeText(byId('keyword').value)
   const source = normalizeText(byId('source').value)
@@ -327,7 +337,7 @@ function matchesCurrentFilters(item) {
   const managingOrg = normalizeText(byId('managingOrg').value)
   const executingOrg = normalizeText(byId('executingOrg').value)
   const period = normalizeText(byId('period').value)
-  const status = normalizeText(byId('status').value)
+  const status = getEffectiveStatusFilter()
   const statusInfo = getStatusInfo(item)
 
   if (source && normalizeText(item.source) !== source) {
