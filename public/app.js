@@ -314,17 +314,17 @@ function getSelectedCategories() {
   return Array.from(byId('category').querySelectorAll('input[type="checkbox"]:checked')).map((checkbox) => checkbox.value)
 }
 
-function getEffectiveStatusFilter() {
+function getEffectiveStatusFilter(activeTab = state.activeTab) {
   const status = normalizeText(byId('status').value)
 
-  if (state.activeTab !== 'open' && status === 'ongoing') {
+  if (activeTab !== 'open' && status === 'ongoing') {
     return ''
   }
 
   return status
 }
 
-function matchesCurrentFilters(item) {
+function matchesFiltersForTab(item, activeTab = state.activeTab) {
   const keyword = normalizeText(byId('keyword').value)
   const source = normalizeText(byId('source').value)
   const title = normalizeText(byId('title').value)
@@ -337,7 +337,7 @@ function matchesCurrentFilters(item) {
   const managingOrg = normalizeText(byId('managingOrg').value)
   const executingOrg = normalizeText(byId('executingOrg').value)
   const period = normalizeText(byId('period').value)
-  const status = getEffectiveStatusFilter()
+  const status = getEffectiveStatusFilter(activeTab)
   const statusInfo = getStatusInfo(item)
 
   if (source && normalizeText(item.source) !== source) {
@@ -389,6 +389,10 @@ function matchesCurrentFilters(item) {
   }
 
   return true
+}
+
+function matchesCurrentFilters(item) {
+  return matchesFiltersForTab(item, state.activeTab)
 }
 
 function mapRowToItem(row) {
@@ -1020,12 +1024,19 @@ function updatePaginationControls(page, totalPages) {
   })
 }
 
-function updateTabCounts(openCount) {
-  const hiddenCount = Object.keys(state.workflowMap).length
-  const defaultOpenCount = Math.max(state.totalAnnouncements - hiddenCount, 0)
-  const pendingFilteredCount = getWorkflowItemsByStatus('pending').filter(matchesCurrentFilters).length
-  const completedFilteredCount = getWorkflowItemsByStatus('completed').filter(matchesCurrentFilters).length
-  byId('tab-open-count').textContent = `(${(openCount === undefined ? defaultOpenCount : openCount).toLocaleString('ko-KR')})`
+async function resolveOpenTabCount() {
+  const result = await fetchOpenAnnouncementsPage(1, 1, true)
+  const hiddenMatchingCount = Object.values(state.workflowMap).filter((item) => matchesFiltersForTab(item, 'open')).length
+
+  return Math.max(result.total - hiddenMatchingCount, 0)
+}
+
+async function updateTabCounts(openCount) {
+  const pendingFilteredCount = getWorkflowItemsByStatus('pending').filter((item) => matchesFiltersForTab(item, 'pending')).length
+  const completedFilteredCount = getWorkflowItemsByStatus('completed').filter((item) => matchesFiltersForTab(item, 'completed')).length
+  const resolvedOpenCount = openCount === undefined ? await resolveOpenTabCount() : openCount
+
+  byId('tab-open-count').textContent = `(${resolvedOpenCount.toLocaleString('ko-KR')})`
   byId('tab-pending-count').textContent = `(${pendingFilteredCount.toLocaleString('ko-KR')})`
   byId('tab-completed-count').textContent = `(${completedFilteredCount.toLocaleString('ko-KR')})`
 }
@@ -1120,7 +1131,7 @@ async function loadOpenAnnouncements(requestId) {
   state.totalPages = paginated.totalPages
   state.currentItems = paginated.items
   renderRows(paginated.items)
-  updateTabCounts(visibleItems.length)
+  await updateTabCounts(visibleItems.length)
 
   byId('filtered-count').textContent = visibleItems.length.toLocaleString('ko-KR')
   updatePaginationControls(paginated.page, paginated.totalPages)
@@ -1151,7 +1162,7 @@ async function loadAnnouncements() {
   state.totalPages = paginated.totalPages
   state.currentItems = paginated.items
   renderRows(paginated.items)
-  updateTabCounts()
+  await updateTabCounts()
 
   byId('filtered-count').textContent = paginated.total.toLocaleString('ko-KR')
   updatePaginationControls(paginated.page, paginated.totalPages)
